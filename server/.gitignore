@@ -1,0 +1,15 @@
+# node_modules
+node_modules
+
+# env
+.env
+
+# build
+dist
+
+# logs
+logs
+
+.DS_Store
+
+scripts
