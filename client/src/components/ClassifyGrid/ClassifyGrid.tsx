@@ -7,7 +7,6 @@ import { CLASSIFY_ANNOTATION_LIST_WIDTH } from '@renderer/constants'
 import { getStoredUrl, groupIntoChunks } from '@renderer/utils/vars'
 import { cn } from '@renderer/utils/cn'
 import { useFilesStore } from '@renderer/store/files.store'
-import { updateFileHeightWidth, updateFileListTag } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import AnnotationClass from '@models/AnnotationClass.model'
 import SearchTags from '../common/SearchTags'
@@ -17,6 +16,7 @@ import { useClassifyStore } from '@renderer/store/classify.store'
 import PrevGrid from './PrevGrid'
 import NextGrid from './NextGrid'
 import FileType from '@renderer/models/File.model'
+import { filesService } from '@/services/supabase'
 
 const ClassifyGrid: FC = () => {
   const { projectid: projectId } = useParams()
@@ -27,7 +27,10 @@ const ClassifyGrid: FC = () => {
   const orgId = useOrgStore((state) => state.selectedOrg)
   const files = useFilesStore((state) => state.files)
   const updateFile = useFilesStore((state) => state.updateFile)
-  const { mutate: updateFileListTagMutate } = useMutation(updateFileListTag)
+  const { mutate: updateFileListTagMutate } = useMutation({
+    mutationFn: ({ fileIds, tagIds }: { fileIds: string[]; tagIds: string[] }) =>
+      filesService.updateMultipleFileTags(fileIds, tagIds)
+  })
   const selectedImages = useClassifyStore((s) => s.selectedImages)
   const setSelectedImages = useClassifyStore((s) => s.setSelectedImages)
   const gridSize = useClassifyStore((s) => s.gridSize)
@@ -41,7 +44,10 @@ const ClassifyGrid: FC = () => {
 
   const [thumbGrids, setThumbGrids] = useState<{ chunk: FileType[]; idx: number }[]>([])
 
-  const fileUpdateMutation = useMutation({ mutationFn: updateFileHeightWidth })
+  const fileUpdateMutation = useMutation({
+    mutationFn: ({ fileId, width, height }: { fileId: string; width: number; height: number }) =>
+      filesService.updateFile(fileId, { width, height })
+  })
 
   useEffect(() => {
     if (!firstFile) return
@@ -62,15 +68,13 @@ const ClassifyGrid: FC = () => {
   const updateTagsToDB = (fTags: AnnotationClass[]) => {
     setSelectedTag(fTags)
 
-    if (!orgId || !projectId) return
+    if (selectedImages.length === 0) return
 
     for (const imageId of selectedImages) {
       updateFile(imageId, { tags: fTags, complete: fTags.length > 0, skipped: fTags.length === 0 })
     }
 
     updateFileListTagMutate({
-      orgId,
-      projectId,
       fileIds: selectedImages,
       tagIds: fTags.map((f) => f.id)
     })
@@ -137,12 +141,10 @@ const ClassifyGrid: FC = () => {
             const onImageLoad: ReactEventHandler<HTMLImageElement> = (e) => {
               const img = e.target as HTMLImageElement
 
-              if (!orgId || !projectId || !file.id || !img) return
+              if (!file.id || !img) return
 
               const { naturalWidth, naturalHeight } = img
               fileUpdateMutation.mutate({
-                orgId,
-                projectId,
                 fileId: file.id,
                 width: naturalWidth,
                 height: naturalHeight
@@ -162,7 +164,7 @@ const ClassifyGrid: FC = () => {
                 <img
                   onLoad={onImageLoad}
                   className="max-h-full max-w-full"
-                  src={getStoredUrl(file.url, file.storedIn)}
+                  src={file.url}
                   alt={file.originalName}
                 />
 
@@ -262,7 +264,7 @@ const ClassifyGrid: FC = () => {
                   {file.type === 'image' ? (
                     <img
                       className="w-20 object-cover h-full max-h-12 rounded-sm"
-                      src={getStoredUrl(file.url, file.storedIn)}
+                      src={file.url}
                       alt={file.originalName}
                     />
                   ) : (

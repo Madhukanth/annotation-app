@@ -1,0 +1,22 @@
+// Re-export all Supabase services
+export * as annotationClassesService from './annotationClasses.service'
+export * as shapesService from './shapes.service'
+export * as commentsService from './comments.service'
+export * as filesService from './files.service'
+export * as projectsService from './projects.service'
+export * as invitationsService from './invitations.service'
+export * as actionsService from './actions.service'
+export * as usersService from './users.service'
+export * as organizationsService from './organizations.service'
+export * as statsService from './stats.service'
+export * as storageService from './storage.service'
+
+// Re-export types
+export type { CreateAnnotationClassInput, UpdateAnnotationClassInput } from './annotationClasses.service'
+export type { CreateShapeInput, UpdateShapeInput } from './shapes.service'
+export type { CommentWithUser, CreateCommentInput, UpdateCommentInput } from './comments.service'
+export type { FileWithTags, FilesFilter, UpdateFileInput, CreateFileInput } from './files.service'
+export type { ProjectWithStats, UpdateProjectInput, CreateProjectInput } from './projects.service'
+export type { InvitationWithUsers, CreateInvitationInput } from './invitations.service'
+export type { CreateActionInput, ActionsFilter } from './actions.service'
+export type { UploadFileOptions, UploadResult } from './storage.service'

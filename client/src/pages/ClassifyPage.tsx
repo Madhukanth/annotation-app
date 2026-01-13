@@ -5,16 +5,15 @@ import { HEADER_HEIGHT } from '@renderer/constants'
 import HeaderLayout from '@renderer/components/Annotate/HeaderLayout'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useFilesStore } from '@renderer/store/files.store'
-import { useQuery } from '@tanstack/react-query'
-import { fetchProjects, queryFetcher } from '@renderer/helpers/axiosRequests'
-import { useUserStore } from '@renderer/store/user.store'
 import { useProjectStore } from '@renderer/store/project.store'
 import Loader from '@renderer/components/common/Loader'
-import FileType from '@renderer/models/File.model'
 import { errorNotification, successNotification } from '@renderer/components/common/Notification'
 import ClassifyImage from '@renderer/components/ClassifyImage'
 import { useClassifyStore } from '@renderer/store/classify.store'
 import ClassifyGrid from '@renderer/components/ClassifyGrid/ClassifyGrid'
+import { useProjects } from '@/hooks/useProjects'
+import { filesService } from '@/services/supabase'
+import { transformFileToLegacy, transformProjectToLegacy } from '@/utils/transformers'
 
 const ClassifyPage: FC = () => {
   const { orgid: orgId, projectid: projectId } = useParams()
@@ -33,7 +32,6 @@ const ClassifyPage: FC = () => {
   const tags = searchParams.get('tags')
   const projectSkip = Number(searchParams.get('projectSkip') || 0)
   const projectLimit = Number(searchParams.get('projectLimit') || 20)
-  const user = useUserStore((s) => s.user)
   const setProjects = useProjectStore((s) => s.setProjects)
   const appendFiles = useFilesStore((s) => s.appendFiles)
   const selectedFile = useFilesStore((s) => s.selectedFile)
@@ -47,15 +45,11 @@ const ClassifyPage: FC = () => {
   const isReviewPage = location.pathname.startsWith('/review')
   const keepCount = isReviewPage ? 0 : 10
 
-  const { data: projectsData, refetch: refetchProjects } = useQuery(
-    ['projects', { orgId: orgId!, userId: user!.id, limit: projectLimit, skip: projectSkip }],
-    fetchProjects,
-    { enabled: false }
-  )
+  // Fetch projects using Supabase
+  const { data: projectsData } = useProjects(orgId || '')
 
   useEffect(() => {
     setFiles([])
-    refetchProjects()
     setIsInit(true)
 
     return () => {
@@ -64,27 +58,24 @@ const ClassifyPage: FC = () => {
   }, [])
 
   useEffect(() => {
-    if (!isInit) return
+    if (!isInit || !projectId) return
 
-    const fetchMoreFiles = (): Promise<{ files: FileType[]; count: number }> => {
-      return queryFetcher(`/orgs/${orgId}/projects/${projectId}/files`, {
-        skip: skip.toString(),
-        limit: limit.toString(),
-        ...(complete && { complete: complete.toString() }),
-        ...(completedAfter && { completedAfter: new Date(completedAfter).toISOString() }),
-        ...(skipped && { skipped: skipped.toString() }),
-        ...(skippedAfter && { skippedAfter: new Date(skippedAfter).toISOString() }),
-        ...(annotator && { annotator }),
-        ...(tags && { tags }),
+    const fetchMoreFiles = async () => {
+      const filters: Parameters<typeof filesService.getFilesWithCount>[3] = {
+        ...(complete !== null && { complete: complete === 'true' }),
+        ...(completedAfter && { completedAfter }),
+        ...(skipped !== null && { skipped: skipped === 'true' }),
+        ...(skippedAfter && { skippedAfter }),
+        ...(annotator && { annotatorId: annotator }),
+        ...(tags && { tags: tags.split(',') }),
         ...(keepCount > 0 &&
           files.length > 0 && {
-            skipFileIds: files
-              .slice(-keepCount)
-              .map((f) => f.id)
-              .join(',')
+            skipFileIds: files.slice(-keepCount).map((f) => f.id)
           }),
         assign: isReviewPage ? 'false' : 'true'
-      })
+      }
+
+      return filesService.getFilesWithCount(projectId, skip, limit, filters)
     }
 
     const handleFetchMoreFiles = async () => {
@@ -93,19 +84,22 @@ const ClassifyPage: FC = () => {
       try {
         const fetchData = await fetchMoreFiles()
         if (fetchData.files.length > 0) {
-          let fileToSelect = fetchData.files[0]
+          // Transform Supabase format to legacy format
+          const transformedFiles = fetchData.files.map((f) => transformFileToLegacy(f))
+
+          let fileToSelect = transformedFiles[0]
 
           if (prevSkipTo) {
-            fileToSelect = fetchData.files[fetchData.files.length - 1]
+            fileToSelect = transformedFiles[transformedFiles.length - 1]
 
             const skipTo = Number(prevSkipTo)
-            if (skip < limit && fetchData.files.length >= skipTo) {
-              fileToSelect = fetchData.files[skipTo - 1]
+            if (skip < limit && transformedFiles.length >= skipTo) {
+              fileToSelect = transformedFiles[skipTo - 1]
             }
           }
 
           setSelectedFile(fileToSelect)
-          appendFiles(fetchData.files, keepCount)
+          appendFiles(transformedFiles, keepCount)
         } else {
           successNotification(`No more files to ${isReviewPage ? 'review' : 'classify'}`)
           if (orgId && projectId) {
@@ -140,8 +134,8 @@ const ClassifyPage: FC = () => {
   }, [orgId])
 
   useEffect(() => {
-    if (!projectsData) return
-    setProjects(projectsData.projects)
+    if (!projectsData || projectsData.length === 0) return
+    setProjects(projectsData.map(transformProjectToLegacy))
   }, [projectsData])
 
   return (

@@ -6,8 +6,7 @@ import Highcharts from 'highcharts'
 import HighchartsReact from 'highcharts-react-official'
 import { SingleValue } from 'react-select'
 
-import { useQuery } from '@tanstack/react-query'
-import { fetchProjectBasicInfo, fetchUserStats } from '@renderer/helpers/axiosRequests'
+import { useProjectBasicInfo, useUserStats } from '@/hooks'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
 import SearchAndSelectUsers from '@renderer/components/common/SearchUsers'
@@ -31,27 +30,12 @@ const ProjectDashboard: FC = () => {
 
   const selectedOrg = useOrgStore((s) => s.selectedOrg)
 
-  const { data: projectInfo } = useQuery(
-    ['project-info', { orgId: selectedOrg!, projectId: projectId! }],
-    fetchProjectBasicInfo,
-    {
-      enabled: !!selectedOrg && !!projectId,
-      initialData: { files: 0, completed: 0, skipped: 0, remaining: 0 }
-    }
-  )
+  const { data: projectInfo } = useProjectBasicInfo(projectId!)
 
-  const { data: userStats } = useQuery(
-    [
-      'user-stats',
-      {
-        orgId: selectedOrg!,
-        projectId: projectId!,
-        userId: selectedUser?.value || currentUser!.id,
-        lastdays: selectedGraphOption.value
-      }
-    ],
-    fetchUserStats,
-    { initialData: [], enabled: !!selectedOrg && !!projectId && !!selectedUser }
+  const { data: userStats } = useUserStats(
+    projectId!,
+    selectedUser?.value || currentUser?.id || '',
+    Number(selectedGraphOption.value)
   )
 
   useEffect(() => {
@@ -65,11 +49,11 @@ const ProjectDashboard: FC = () => {
     isReviewer = project.reviewers.includes(selectedUser.value)
   }
 
-  const skippedData = userStats.map(({ end, skipped }) => [
+  const skippedData = (userStats ?? []).map(({ end, skipped }) => [
     new Date(end).valueOf(),
     Number(skipped)
   ])
-  const completedData = userStats.map(({ end, completed }) => [
+  const completedData = (userStats ?? []).map(({ end, completed }) => [
     new Date(end).valueOf(),
     Number(completed)
   ])
@@ -180,22 +164,22 @@ const ProjectDashboard: FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 text-font">
         <div className="bg-gray-200 h-44 text-center rounded-lg p-2">
           <FaRegImage className="mx-auto mt-4" size={30} />
-          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo.files}</p>
+          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo?.files ?? 0}</p>
           <p className="text-base text-center">Files</p>
         </div>
         <div className="bg-gray-200 h-44 rounded-lg p-2">
           <BsFillCheckCircleFill className="mx-auto mt-4" size={30} />
-          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo.completed}</p>
+          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo?.completed ?? 0}</p>
           <p className="text-base text-center">Completed</p>
         </div>
         <div className="bg-gray-200 h-44 rounded-lg p-2">
           <BsXCircleFill className="mx-auto mt-4" size={30} />
-          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo.skipped}</p>
+          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo?.skipped ?? 0}</p>
           <p className="text-base text-center">Skipped</p>
         </div>
         <div className="bg-gray-200 h-44 rounded-lg p-2">
           <BsClockFill className="mx-auto mt-4" size={30} />
-          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo.remaining}</p>
+          <p className="mt-3 text-5xl font-semibold text-center">{projectInfo?.remaining ?? 0}</p>
           <p className="text-base text-center">Remaining</p>
         </div>
       </div>

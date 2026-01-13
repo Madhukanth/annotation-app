@@ -21,16 +21,16 @@ export const createAnnotationClassController = async (
     const annotationClass =
       await AnnotationClassService.dbCreateAnnotationClass({
         name,
-        ID,
+        has_id: ID,
         attributes,
-        text,
-        orgId: getObjectId(orgId),
-        projectId: getObjectId(projectId),
+        has_text: text,
+        org_id: orgId,
+        project_id: projectId,
         color,
         notes,
       })
 
-    return res.status(httpStatus.CREATED).json(annotationClass.toJSON())
+    return res.status(httpStatus.CREATED).json(annotationClass)
   } catch (err) {
     next(err)
   }
@@ -58,8 +58,7 @@ export const getAnnotationClassesController = async (
         name
       )
 
-    const annotationClassesJson = annotationClassDocs.map((a) => a.toJSON())
-    return res.status(httpStatus.OK).json(annotationClassesJson)
+    return res.status(httpStatus.OK).json(annotationClassDocs)
   } catch (err) {
     next(err)
   }
@@ -81,13 +80,13 @@ export const updateAnnotationClassController = async (
       orgId,
       projectId,
       classId,
-      { name, ID, attributes, text, color, notes }
+      { name, has_id: ID, attributes, has_text: text, color, notes }
     )
     if (!updatedDoc) {
       throw new Error('Annotation Class not found')
     }
 
-    return res.status(httpStatus.OK).json(updatedDoc.toJSON())
+    return res.status(httpStatus.OK).json(updatedDoc)
   } catch (err) {
     next(err)
   }
@@ -105,7 +104,7 @@ export const deleteAnnotationClassController = async (
       throw new Error('Annotation Class not found')
     }
 
-    return res.status(httpStatus.OK).json(doc.toJSON())
+    return res.status(httpStatus.OK).json(doc)
   } catch (err) {
     next(err)
   }

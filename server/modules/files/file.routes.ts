@@ -41,7 +41,11 @@ export default () => {
   )
 
   // Export data
-  api.get('/export', authorize, FileController.exportShapesController)
+  api.get(
+    '/export',
+    authorize,
+    FileController.exportShapesController as any
+  )
 
   // Delete file by id
   api.delete(

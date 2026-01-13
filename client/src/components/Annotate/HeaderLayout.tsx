@@ -1,5 +1,4 @@
 import { FC, useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { IoClose } from 'react-icons/io5'
 import { HiMenu } from 'react-icons/hi'
 import { BsInfoLg } from 'react-icons/bs'
@@ -9,7 +8,7 @@ import { BiCheck, BiX } from 'react-icons/bi'
 
 import { cn } from '@renderer/utils/cn'
 import { HEADER_HEIGHT, SIDEBAR_WIDTH } from '@renderer/constants'
-import { fetchOrganization } from '@renderer/helpers/axiosRequests'
+import { useOrganizations } from '@/hooks/useOrganizations'
 import { useUserStore } from '@renderer/store/user.store'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useClassesStore } from '@renderer/store/classes.store'
@@ -18,7 +17,6 @@ import SidebarCore from '@renderer/components/Sidebar/SidebarCore'
 import Tooltip from '../common/Tooltip'
 import HoverText from '../common/HoverText'
 import FileInfo from './FileInfo'
-import FilesGoTo from './FilesGoTo'
 import SkipButton from './SkipButton'
 import CompleteButton from './CompleteButton'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -56,11 +54,7 @@ const HeaderLayout: FC = () => {
   const gridSize = useClassifyStore((s) => s.gridSize)
   const setGridSize = useClassifyStore((s) => s.setGridSize)
 
-  const { data: organizations } = useQuery(
-    ['organizations', { userId: user!.id }],
-    fetchOrganization,
-    { initialData: [], enabled: !!user }
-  )
+  const { data: organizations = [] } = useOrganizations(user?.id || '')
 
   useEffect(() => {
     setOrgs(organizations)

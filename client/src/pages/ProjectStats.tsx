@@ -1,18 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
-import { getProjectStats } from '@renderer/helpers/axiosRequests'
+import { useProjectStats } from '@/hooks/useStats'
 
 const ProjectStats = () => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
 
-  const { data: stats } = useQuery(
-    ['project-stats', { orgId: orgId!, projectId: projectId! }],
-    getProjectStats,
-    { initialData: [] }
-  )
+  const { data: stats = [] } = useProjectStats(projectId || '')
 
-  const sortedStats = stats.sort((a, b) => a.userName.localeCompare(b.userName))
+  const sortedStats = [...stats].sort((a, b) => a.userName.localeCompare(b.userName))
 
   return (
     <div className="overflow-scroll h-full">

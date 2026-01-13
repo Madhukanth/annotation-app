@@ -7,7 +7,7 @@ import FaceType from '@models/Face.model'
 import PointType from '@models/Point.model'
 import KonvaFace from '@renderer/components/KonvaFace'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useImageStore, useImageUntrackedStore } from './store/image.store'
@@ -22,7 +22,10 @@ const ImageFace: FC<ImageFaceProps> = ({ stageRef, imgSize, selectCommentTab }) 
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+  const { mutate: updateShapeMutate } = useMutation({
+    mutationFn: ({ shapeId, shape }: { shapeId: string; shape: UpdateShapeInput }) =>
+      shapesService.updateShape(shapeId, shape)
+  })
 
   const drawingShape = useImageUntrackedStore((state) => state.drawingShape)
   const selectedShape = useImageUntrackedStore((state) => state.selectedShape)
@@ -40,11 +43,8 @@ const ImageFace: FC<ImageFaceProps> = ({ stageRef, imgSize, selectCommentTab }) 
     updateFace(updatedFace.id, { ...updatedFace })
 
     if (!orgId || !projectId || !fileId) return
-    const uFace = { ...updatedFace, points: getPointsScaled(updatedFace.points) }
+    const uFace: UpdateShapeInput = { points: getPointsScaled(updatedFace.points) }
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: updatedFace.id,
       shape: uFace
     })

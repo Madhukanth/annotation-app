@@ -1,13 +1,11 @@
 import { FC, Fragment, RefObject } from 'react'
 import Konva from 'konva'
-import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
 import FaceType from '@models/Face.model'
 import PointType from '@models/Point.model'
 import KonvaFace from '@renderer/components/KonvaFace'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useUntrackedVideoStore, useVideoPlayerStore, useVideoStore } from './store/video.store'
 import { useFilesStore } from '@renderer/store/files.store'
@@ -24,11 +22,13 @@ const VideoFace: FC<VideoFaceProps> = ({
   selectCommentTab,
   calculateCurrentFrame
 }) => {
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+
+  const updateShapeMutation = useMutation({
+    mutationFn: ({ shapeId, data }: { shapeId: string; data: Parameters<typeof shapesService.updateShape>[1] }) =>
+      shapesService.updateShape(shapeId, data)
+  })
 
   const faces = useVideoStore((state) => state.faces)
   const updateFace = useVideoStore((state) => state.updateFace)
@@ -56,13 +56,10 @@ const VideoFace: FC<VideoFaceProps> = ({
   const handleFaceDragOrChange = (updatedFace: FaceType) => {
     updateFace(calculateCurrentFrame(), updatedFace.id, { ...updatedFace })
 
-    if (!orgId || !projectId || !fileId) return
-    updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
+    if (!fileId) return
+    updateShapeMutation.mutate({
       shapeId: updatedFace.id,
-      shape: { points: getPointsScaled(updatedFace.points) }
+      data: { points: getPointsScaled(updatedFace.points) }
     })
   }
 

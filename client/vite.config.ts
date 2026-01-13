@@ -5,5 +5,11 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { '@renderer': resolve('src'), '@models': resolve('src') } }
+  resolve: {
+    alias: {
+      '@': resolve('src'),
+      '@renderer': resolve('src'),
+      '@models': resolve('src/models')
+    }
+  }
 })

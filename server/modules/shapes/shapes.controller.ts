@@ -30,17 +30,15 @@ export const createShapeController = async (
       req.user.id,
       {
         ...restBody,
-        id: id,
-        _id: getObjectId(id),
-        orgId: getObjectId(orgId),
-        projectId: getObjectId(projectId),
-        fileId: getObjectId(fileId),
+        org_id: orgId,
+        project_id: projectId,
+        file_id: fileId,
         stroke: req.body.stroke || 'red',
-        strokeWidth: req.body.strokeWidth || 2,
-        classId: classId ? getObjectId(classId) : undefined,
+        stroke_width: req.body.strokeWidth || 2,
+        class_id: classId,
       }
     )
-    return res.status(httpStatus.CREATED).json(shapeDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(shapeDoc)
   } catch (err) {
     next(err)
   }
@@ -76,14 +74,14 @@ export const updateShapeController = async (
       shapeId,
       {
         ...restBody,
-        classId: classId ? getObjectId(classId) : undefined,
+        class_id: classId,
       }
     )
     if (!shapeDoc) {
       throw new Error('Shape not found')
     }
 
-    return res.status(httpStatus.OK).json(shapeDoc.toJSON())
+    return res.status(httpStatus.OK).json(shapeDoc)
   } catch (err) {
     next(err)
   }
@@ -101,7 +99,7 @@ export const deleteShapeController = async (
       throw new Error('Shape not found')
     }
 
-    return res.status(httpStatus.OK).json(shapeDoc.toJSON())
+    return res.status(httpStatus.OK).json(shapeDoc)
   } catch (err) {
     next(err)
   }
@@ -115,8 +113,7 @@ export const getShapes = async (
   try {
     const { fileid: fileId, orgid: orgId, projectid: projectId } = req.params
     const shapeDocs = await ShapeService.dbGetShapes(orgId, projectId, fileId)
-    const shapesJson = shapeDocs.map((shape) => shape.toJSON())
-    return res.status(httpStatus.OK).json(shapesJson)
+    return res.status(httpStatus.OK).json(shapeDocs)
   } catch (err) {
     next(err)
   }

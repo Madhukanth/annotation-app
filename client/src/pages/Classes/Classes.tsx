@@ -1,12 +1,10 @@
 import { FC, useEffect, useState } from 'react'
 import { FiPlus } from 'react-icons/fi'
-import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
 import Button from '@renderer/components/common/Button'
 import CreateClassModal from '@renderer/components/Classes/CreateClassModal'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { fetchAnnotationClasses } from '@renderer/helpers/axiosRequests'
+import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 import AnnotationClass from '@models/AnnotationClass.model'
 import EditClassModal from '@renderer/components/Classes/EditClassModal'
 import ClassCard from '@renderer/components/Classes/ClassCard'
@@ -19,21 +17,31 @@ const Classes: FC = () => {
   const [editClass, setEditClass] = useState<AnnotationClass | null>(null)
   const { projectid: projectId } = useParams()
 
-  const orgId = useOrgStore((state) => state.selectedOrg)
   const classes = useClassesStore((state) => state.classes)
   const setClasses = useClassesStore((state) => state.setClasses)
   const projects = useProjectStore((state) => state.projects)
   const currProject = projects.find((p) => p.id === projectId)
 
-  const { data: annotationClasses, isInitialLoading } = useQuery(
-    ['classes', { orgId: orgId!, projectId: projectId! }],
-    fetchAnnotationClasses,
-    { enabled: !!orgId, initialData: [] }
-  )
+  const { data: annotationClassesData = [], isLoading: isInitialLoading } = useAnnotationClasses(projectId || '')
+
+  // Transform snake_case to camelCase for compatibility
+  const annotationClasses = annotationClassesData.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+    notes: c.notes || '',
+    attributes: c.attributes || [],
+    text: c.has_text || false,
+    ID: c.has_id || false,
+    orgId: c.org_id,
+    projectId: c.project_id,
+    createdAt: c.created_at || '',
+    modifiedAt: c.updated_at || c.created_at || ''
+  }))
 
   useEffect(() => {
     setClasses(annotationClasses)
-  }, [annotationClasses, setClasses])
+  }, [annotationClassesData, setClasses])
 
   if (!currProject) {
     return null

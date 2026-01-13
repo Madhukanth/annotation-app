@@ -1,11 +1,11 @@
 import { ChangeEvent, FC, RefObject } from 'react'
 
 import { cn } from '@renderer/utils/cn'
-import { VideoFileType } from '@models/File.model'
+import { VideoObjType } from '@models/File.model'
 
 type VideoSliderProps = {
   videoRef: RefObject<HTMLVideoElement>
-  videoObj: VideoFileType
+  videoObj: VideoObjType
   currentTimeAndFrame: { time: number; frame: number }
   miniControls?: boolean
 }

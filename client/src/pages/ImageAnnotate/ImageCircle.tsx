@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom'
 import KonvaCircle from '@renderer/components/KonvaCircle'
 import CircleType from '@models/Circle.model'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
 import { ShapeType } from '@models/Shape.model'
@@ -15,7 +15,10 @@ type ImageCircleProps = { imgSize: ImgSize; selectCommentTab: () => void }
 const ImageCircle: FC<ImageCircleProps> = ({ imgSize, selectCommentTab }) => {
   const orgId = useOrgStore((s) => s.selectedOrg)
   const { projectid: projectId } = useParams()
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+  const { mutate: updateShapeMutate } = useMutation({
+    mutationFn: ({ shapeId, shape }: { shapeId: string; shape: UpdateShapeInput }) =>
+      shapesService.updateShape(shapeId, shape)
+  })
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
 
@@ -34,17 +37,13 @@ const ImageCircle: FC<ImageCircleProps> = ({ imgSize, selectCommentTab }) => {
     const scaleX = imgSize.offsetWidth / imgSize.naturalWidth
     const scaleY = imgSize.offsetHeight / imgSize.naturalHeight
 
-    const uShape = {
-      ...updatedCircle,
+    const uShape: UpdateShapeInput = {
       x: updatedCircle.x / scaleX,
       y: updatedCircle.y / scaleY,
       height: updatedCircle.height / scaleY,
       width: updatedCircle.width / scaleX
     }
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: updatedCircle.id,
       shape: uShape
     })

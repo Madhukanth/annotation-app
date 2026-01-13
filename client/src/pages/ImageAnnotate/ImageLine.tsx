@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import KonvaLine from '@renderer/components/KonvaLine'
 import LineType from '@models/Line.model'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import PointType from '@models/Point.model'
 import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
@@ -23,7 +23,10 @@ const ImageLines: FC<ImageLinesProps> = ({ stageRef, imgSize, selectCommentTab }
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+  const { mutate: updateShapeMutate } = useMutation({
+    mutationFn: ({ shapeId, shape }: { shapeId: string; shape: UpdateShapeInput }) =>
+      shapesService.updateShape(shapeId, shape)
+  })
 
   const drawingShape = useImageUntrackedStore((state) => state.drawingShape)
   const selectedShape = useImageUntrackedStore((state) => state.selectedShape)
@@ -45,11 +48,8 @@ const ImageLines: FC<ImageLinesProps> = ({ stageRef, imgSize, selectCommentTab }
     updateLine(updatedLine.id, { ...updatedLine })
 
     if (!orgId || !projectId || !fileId) return
-    const uLine = { ...updatedLine, points: getPointsScaled(updatedLine.points) }
+    const uLine: UpdateShapeInput = { points: getPointsScaled(updatedLine.points) }
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: updatedLine.id,
       shape: uLine
     })

@@ -1,6 +1,4 @@
-import express, { Request } from 'express'
-import mongoose from 'mongoose'
-import passport from 'passport'
+import express from 'express'
 import morgan from 'morgan'
 import bodyParser from 'body-parser'
 import compress from 'compression'
@@ -11,7 +9,6 @@ import helmet from 'helmet'
 import envs from './config/vars'
 import routes from './routes'
 import * as ErrorMiddlewares from './middlewares/error'
-import { jwt } from './config/passport'
 import logger from './config/logger'
 
 async function main() {
@@ -53,9 +50,8 @@ async function main() {
   // enable CORS - Cross Origin Resource Sharing
   app.use(cors())
 
-  // enable authentication
-  app.use(passport.initialize())
-  passport.use('jwt', jwt)
+  // Note: Passport.js removed - using Supabase Auth instead
+  // Authentication is handled by the authorize middleware in middlewares/auth.ts
 
   app.use('/api/v1', routes)
 
@@ -68,8 +64,8 @@ async function main() {
   // error handler, send stacktrace only during development
   app.use(ErrorMiddlewares.handler)
 
-  // Connect db
-  await mongoose.connect(envs.DATABASE_URL!)
+  // Note: MongoDB connection removed - using Supabase PostgreSQL instead
+  // Supabase client is configured in config/supabase.ts and used directly in services
 
   app.listen(envs.PORT, async () => {
     console.log(`Server is running at http://localhost:${envs.PORT}`)

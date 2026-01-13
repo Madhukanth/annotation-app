@@ -1,6 +1,8 @@
 import { object, string, TypeOf, enum as zodEnum } from 'zod'
 
-import { userRoles } from '../users/user.model'
+// User roles - defined here to avoid circular dependency with mongoose model
+export const userRoles = ['superadmin', 'orgadmin', 'user'] as const
+export type UserRoleType = (typeof userRoles)[number]
 
 export const registerUserZod = {
   body: object({

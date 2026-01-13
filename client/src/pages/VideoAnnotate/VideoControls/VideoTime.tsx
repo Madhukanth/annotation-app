@@ -1,11 +1,11 @@
 import { FC, RefObject, useCallback, useEffect } from 'react'
 
 import { toHHMMSS, toHHMMSSFromFPS } from '../helpers/helpers'
-import { VideoFileType } from '@models/File.model'
+import { VideoObjType } from '@models/File.model'
 
 type VideoTimeProps = {
   videoRef: RefObject<HTMLVideoElement>
-  videoObj: VideoFileType
+  videoObj: VideoObjType
   currentTimeAndFrame: { time: number; frame: number }
   setCurrentTimeAndFrame: (val: { time: number; frame: number }) => void
   color: string

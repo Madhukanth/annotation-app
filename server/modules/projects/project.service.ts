@@ -1,22 +1,44 @@
-import ProjectModel, { ProjectType, Storage, Task } from './project.model'
-import { getObjectId } from '../../utils/db'
-import FileModel from '../files/file.model'
-import ActionModel, { ActionType } from '../action/action.model'
-import ShapeModel, { ShapeType } from '../shapes/shapes.model'
-// import { deleteObjectsWithPrefix } from '../../utils/aws'
-// import { deleteContainer } from '../../utils/azure'
+import { supabaseAdmin } from '../../config/supabase'
+import { DB_TABLES } from '../../config/vars'
 import * as UserService from '../users/user.service'
-import AnnotationClassModel from '../annotationclasses/annotationclasses.model'
-import UserModel from '../users/user.model'
+import { dbGetShapesByFileIds, ShapeType, dbInsertManyShapes } from '../shapes/shapes.service'
+import { dbGetAnnotationClassById, dbGetAnnotationClasses } from '../annotationclasses/annotationclasses.service'
 import { parse } from 'json2csv'
 import { toZonedTime, format } from 'date-fns-tz'
+import { v4 as uuidv4 } from 'uuid'
+
+export type StorageType = 'aws' | 'azure' | 'default'
+export type TaskType = 'classification' | 'object-annotation'
+
+export type ProjectType = {
+  id: string
+  name: string
+  org_id: string
+  task_type: TaskType
+  instructions?: string
+  storage: StorageType
+  aws_secret_access_key?: string
+  aws_access_key_id?: string
+  aws_region?: string
+  aws_api_version?: string
+  aws_bucket_name?: string
+  azure_storage_account?: string
+  azure_pass_key?: string
+  azure_container_name?: string
+  is_syncing: boolean
+  synced_at?: string
+  prefix?: string
+  default_class_id?: string
+  created_at?: string
+  updated_at?: string
+}
 
 export const dbCreateProject = async (
   name: string,
   orgId: string,
   adminId: string,
-  storage: Storage,
-  taskType: Task,
+  storage: StorageType,
+  taskType: TaskType,
   optionValues: {
     azureStorageAccount?: string
     azurePassKey?: string
@@ -26,54 +48,86 @@ export const dbCreateProject = async (
     awsApiVersion?: string
     awsBucketName?: string
   }
-) => {
-  const dataManagersSet = new Set<string>()
-  dataManagersSet.add(adminId.toString())
+): Promise<ProjectType | null> => {
+  // Create the project
+  const { data: project, error } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .insert({
+      name,
+      org_id: orgId,
+      storage,
+      task_type: taskType,
+      is_syncing: false,
+      ...(optionValues.azureStorageAccount && { azure_storage_account: optionValues.azureStorageAccount }),
+      ...(optionValues.azurePassKey && { azure_pass_key: optionValues.azurePassKey }),
+      ...(optionValues.awsSecretAccessKey && { aws_secret_access_key: optionValues.awsSecretAccessKey }),
+      ...(optionValues.awsAccessKeyId && { aws_access_key_id: optionValues.awsAccessKeyId }),
+      ...(optionValues.awsRegion && { aws_region: optionValues.awsRegion }),
+      ...(optionValues.awsApiVersion && { aws_api_version: optionValues.awsApiVersion }),
+      ...(optionValues.awsBucketName && { aws_bucket_name: optionValues.awsBucketName }),
+    })
+    .select()
+    .single()
 
-  const superAdmins = await UserService.dbGetAllSuperAdmins()
-  for (const user of superAdmins) {
-    dataManagersSet.add(user._id.toString())
+  if (error || !project) {
+    console.error('Error creating project:', error)
+    return null
   }
 
-  const dataManagers = Array.from(dataManagersSet)
-  const projectDoc = await ProjectModel.create({
-    name,
-    orgId: getObjectId(orgId),
-    dataManagers: dataManagers.map((id) => getObjectId(id)),
-    storage,
-    taskType,
-    ...optionValues,
-  })
-  return projectDoc
+  // Add admin as data manager
+  const dataManagersSet = new Set<string>()
+  dataManagersSet.add(adminId)
+
+  // Add all super admins as data managers
+  const superAdmins = await UserService.dbGetAllSuperAdmins()
+  for (const user of superAdmins) {
+    dataManagersSet.add(user.id)
+  }
+
+  // Insert data managers into junction table
+  const dataManagerInserts = Array.from(dataManagersSet).map((userId) => ({
+    project_id: project.id,
+    user_id: userId,
+  }))
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .insert(dataManagerInserts)
+
+  return project
 }
 
 export const dbUpdateProject = async (
   projectId: string,
   projectData: Partial<ProjectType>
-) => {
-  const updatedProjectDoc = await ProjectModel.findOneAndUpdate(
-    { _id: getObjectId(projectId) },
-    { ...projectData },
-    {
-      projection: {
-        _id: 1,
-        name: 1,
-        orgId: 1,
-        dataManagers: 1,
-        reviewers: 1,
-        annotators: 1,
-        instructions: 1,
-        storage: 1,
-        taskType: 1,
-      },
-    }
-  )
-  return updatedProjectDoc
+): Promise<ProjectType | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .update(projectData)
+    .eq('id', projectId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating project:', error)
+    return null
+  }
+
+  return data
 }
 
-export const dbGetProjectById = async (projectId: string) => {
-  const projectDoc = await ProjectModel.findOne({ _id: getObjectId(projectId) })
-  return projectDoc
+export const dbGetProjectById = async (projectId: string): Promise<ProjectType | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('*')
+    .eq('id', projectId)
+    .single()
+
+  if (error) {
+    return null
+  }
+
+  return data
 }
 
 export const dbGetProjectFilesCount = async (
@@ -85,18 +139,39 @@ export const dbGetProjectFilesCount = async (
   skipped?: boolean,
   complete?: boolean,
   tags?: string[]
-) => {
-  const count = await FileModel.countDocuments({
-    projectId: getObjectId(projectId),
-    ...(annotator && { annotator: getObjectId(annotator) }),
-    ...(completedAfter && { completedAt: { $gt: new Date(completedAfter) } }),
-    ...(skippedAfter && { skippedAt: { $gt: new Date(skippedAfter) } }),
-    ...(hasShapes !== undefined && { hasShapes }),
-    ...(skipped !== undefined && { skipped }),
-    ...(complete !== undefined && { complete }),
-    ...(tags && { tags: { $in: tags.map((tag) => getObjectId(tag)) } }),
-  })
-  return count
+): Promise<number> => {
+  let query = supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
+
+  if (annotator) {
+    query = query.eq('annotator_id', annotator)
+  }
+  if (completedAfter) {
+    query = query.gt('completed_at', new Date(completedAfter).toISOString())
+  }
+  if (skippedAfter) {
+    query = query.gt('skipped_at', new Date(skippedAfter).toISOString())
+  }
+  if (hasShapes !== undefined) {
+    query = query.eq('has_shapes', hasShapes)
+  }
+  if (skipped !== undefined) {
+    query = query.eq('skipped', skipped)
+  }
+  if (complete !== undefined) {
+    query = query.eq('complete', complete)
+  }
+
+  const { count, error } = await query
+
+  if (error) {
+    console.error('Error getting project files count:', error)
+    return 0
+  }
+
+  return count || 0
 }
 
 export const dbGetProjectFiles = async (
@@ -113,66 +188,106 @@ export const dbGetProjectFiles = async (
   skipFileIds?: string[],
   assign?: boolean,
   tags?: string[]
-) => {
-  const query: { [field: string]: any } = {
-    orgId: getObjectId(orgId),
-    projectId: getObjectId(projectId),
-    ...(annotator && { annotator: getObjectId(annotator) }),
-    ...(completedAfter && { completedAt: { $gt: new Date(completedAfter) } }),
-    ...(skippedAfter && { skippedAt: { $gt: new Date(skippedAfter) } }),
-    ...(hasShapes !== undefined && { hasShapes }),
-    ...(skipped !== undefined && { skipped }),
-    ...(complete !== undefined && { complete }),
-    ...(skipFileIds && {
-      _id: { $nin: skipFileIds.map((id) => getObjectId(id)) },
-    }),
+): Promise<any[]> => {
+  let query = supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true })
+    .order('name', { ascending: true })
+    .range(skip, skip + limit - 1)
+
+  if (annotator) {
+    query = query.eq('annotator_id', annotator)
+  }
+  if (completedAfter) {
+    query = query.gt('completed_at', new Date(completedAfter).toISOString())
+  }
+  if (skippedAfter) {
+    query = query.gt('skipped_at', new Date(skippedAfter).toISOString())
+  }
+  if (hasShapes !== undefined) {
+    query = query.eq('has_shapes', hasShapes)
+  }
+  if (skipped !== undefined) {
+    query = query.eq('skipped', skipped)
+  }
+  if (complete !== undefined) {
+    query = query.eq('complete', complete)
+  }
+  if (skipFileIds && skipFileIds.length > 0) {
+    query = query.not('id', 'in', `(${skipFileIds.join(',')})`)
   }
 
-  if (tags) {
-    const tagObjIds = tags.map((tagId) => getObjectId(tagId))
-    query['tags'] = { $in: tagObjIds }
+  let { data: files, error } = await query
+
+  if (error) {
+    console.error('Error getting project files:', error)
+    return []
   }
 
-  let fileDocs = await FileModel.find(query)
-    .sort({ createdAt: 'asc', name: 'asc' })
-    .skip(skip)
-    .limit(limit)
-    .populate({ path: 'tags', select: { name: 1, color: 1 } })
-    .allowDiskUse(true)
-
-  if (fileDocs.length === 0 && assign && annotator) {
-    fileDocs = await FileModel.find({
-      orgId: getObjectId(orgId),
-      projectId: getObjectId(projectId),
-      complete: false,
-      skipped: false,
-      annotator: null,
-    })
-      .sort({ createdAt: 'asc', name: 'asc' })
+  // If no files found and assign mode is on, find unassigned files
+  if ((!files || files.length === 0) && assign && annotator) {
+    const { data: unassignedFiles, error: unassignedError } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('project_id', projectId)
+      .eq('complete', false)
+      .eq('skipped', false)
+      .is('annotator_id', null)
+      .order('created_at', { ascending: true })
+      .order('name', { ascending: true })
       .limit(limit)
-      .populate({ path: 'tags', select: { name: 1, color: 1 } })
-      .allowDiskUse(true)
-    if (fileDocs.length > 0) {
-      await FileModel.updateMany(
-        { _id: { $in: fileDocs.map((f) => f._id) } },
-        { $set: { annotator: getObjectId(annotator), assignedAt: new Date() } }
-      )
+
+    if (!unassignedError && unassignedFiles && unassignedFiles.length > 0) {
+      // Assign files to annotator
+      const fileIds = unassignedFiles.map((f) => f.id)
+      await supabaseAdmin
+        .from(DB_TABLES.files)
+        .update({ annotator_id: annotator, assigned_at: new Date().toISOString() })
+        .in('id', fileIds)
+
+      files = unassignedFiles.map((f) => ({
+        ...f,
+        annotator_id: annotator,
+        assigned_at: new Date().toISOString(),
+      }))
     }
   }
 
-  const filesJson = fileDocs.map((file) => file.toJSON())
-  const fileIds = filesJson.map(({ id }) => id)
-  const shapeDocs = await ShapeModel.find({ fileId: { $in: fileIds } })
-  const shapesJson = shapeDocs.map((s) => s.toJSON())
+  if (!files || files.length === 0) {
+    return []
+  }
 
-  const metadataCollection: {
-    [fileId: string]: { [shapeType: string]: ShapeType[] }
-  } = {}
-  const videoMetadataCollection: {
-    [fileId: string]: { [shapeType: string]: { [frame: number]: ShapeType[] } }
-  } = {}
+  // Get file tags
+  const fileIds = files.map((f) => f.id)
+  const { data: fileTags } = await supabaseAdmin
+    .from(DB_TABLES.fileTags)
+    .select(`
+      file_id,
+      class:class_id (id, name, color)
+    `)
+    .in('file_id', fileIds)
 
-  for (const file of filesJson) {
+  // Create file tags map
+  const fileTagsMap: { [fileId: string]: any[] } = {}
+  for (const tag of fileTags || []) {
+    if (!fileTagsMap[tag.file_id]) {
+      fileTagsMap[tag.file_id] = []
+    }
+    fileTagsMap[tag.file_id].push(tag.class)
+  }
+
+  // Get shapes for files
+  const shapes = await dbGetShapesByFileIds(fileIds)
+
+  // Build metadata collections
+  const metadataCollection: { [fileId: string]: { [shapeType: string]: ShapeType[] } } = {}
+  const videoMetadataCollection: { [fileId: string]: { [shapeType: string]: { [frame: number]: ShapeType[] } } } = {}
+
+  for (const file of files) {
     if (file.type === 'image') {
       metadataCollection[file.id] = {
         polygons: [],
@@ -192,63 +307,109 @@ export const dbGetProjectFiles = async (
     }
   }
 
-  for (const shape of shapesJson) {
-    const shapeFileId = shape.fileId.toString()
+  for (const shape of shapes) {
+    const shapeFileId = shape.file_id
 
     if (metadataCollection[shapeFileId]) {
       metadataCollection[shapeFileId][`${shape.type}s`].push(shape)
-    } else {
-      if (
-        !videoMetadataCollection[shapeFileId][`${shape.type}s`][shape.atFrame]
-      ) {
-        videoMetadataCollection[shapeFileId][`${shape.type}s`][shape.atFrame] =
-          []
+    } else if (videoMetadataCollection[shapeFileId]) {
+      const frame = shape.at_frame
+      if (!videoMetadataCollection[shapeFileId][`${shape.type}s`][frame]) {
+        videoMetadataCollection[shapeFileId][`${shape.type}s`][frame] = []
       }
-      videoMetadataCollection[shapeFileId][`${shape.type}s`][
-        shape.atFrame
-      ].push(shape)
+      videoMetadataCollection[shapeFileId][`${shape.type}s`][frame].push(shape)
     }
   }
 
-  const result = filesJson.map((file, index) => ({
+  const result = files.map((file, index) => ({
     ...file,
+    tags: fileTagsMap[file.id] || [],
     dbIndex: skip + index,
-    metadata:
-      file.type === 'video'
-        ? videoMetadataCollection[file.id]
-        : metadataCollection[file.id],
+    metadata: file.type === 'video'
+      ? videoMetadataCollection[file.id]
+      : metadataCollection[file.id],
   }))
+
   return result
 }
 
-export const dbGetProjectUsers = async (projectId: string) => {
-  const projectDoc = await ProjectModel.findById(projectId)
-    .populate({ path: 'dataManagers', select: { name: 1, email: 1, id: 1 } })
-    .populate({ path: 'reviewers', select: { name: 1, email: 1, id: 1 } })
-    .populate({ path: 'annotators', select: { name: 1, email: 1, id: 1 } })
+export const dbGetProjectUsers = async (projectId: string): Promise<any> => {
+  // Get data managers
+  const { data: dataManagers } = await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .select('user:user_id (id, name, email)')
+    .eq('project_id', projectId)
 
-  return projectDoc
+  // Get reviewers
+  const { data: reviewers } = await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .select('user:user_id (id, name, email)')
+    .eq('project_id', projectId)
+
+  // Get annotators
+  const { data: annotators } = await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .select('user:user_id (id, name, email)')
+    .eq('project_id', projectId)
+
+  // Get project
+  const { data: project } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('*')
+    .eq('id', projectId)
+    .single()
+
+  return {
+    ...project,
+    dataManagers: (dataManagers || []).map((d: any) => d.user),
+    reviewers: (reviewers || []).map((r: any) => r.user),
+    annotators: (annotators || []).map((a: any) => a.user),
+  }
 }
 
-export const dbGetProjectsCount = async (orgId: string, userId?: string) => {
-  const orgIdObject = getObjectId(orgId)
+export const dbGetProjectsCount = async (orgId: string, userId?: string): Promise<number> => {
   if (!userId) {
-    const count = await ProjectModel.countDocuments({
-      orgId: orgIdObject,
-    })
-    return count
+    const { count, error } = await supabaseAdmin
+      .from(DB_TABLES.projects)
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+
+    if (error) {
+      console.error('Error getting projects count:', error)
+      return 0
+    }
+    return count || 0
   }
 
-  const userIdObject = getObjectId(userId)
-  const count = await ProjectModel.countDocuments({
-    orgId: orgIdObject,
-    $or: [
-      { dataManagers: { $elemMatch: { $eq: userIdObject } } },
-      { reviewers: { $elemMatch: { $eq: userIdObject } } },
-      { annotators: { $elemMatch: { $eq: userIdObject } } },
-    ],
-  })
-  return count
+  // Get projects where user is data manager, reviewer, or annotator
+  const { data: dmProjects } = await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .select('project_id')
+    .eq('user_id', userId)
+
+  const { data: reviewerProjects } = await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .select('project_id')
+    .eq('user_id', userId)
+
+  const { data: annotatorProjects } = await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .select('project_id')
+    .eq('user_id', userId)
+
+  const projectIds = new Set<string>()
+  for (const p of [...(dmProjects || []), ...(reviewerProjects || []), ...(annotatorProjects || [])]) {
+    projectIds.add(p.project_id)
+  }
+
+  // Filter by org
+  const { count } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .in('id', Array.from(projectIds))
+
+  return count || 0
 }
 
 export const dbListProjectsBy = async (
@@ -256,430 +417,370 @@ export const dbListProjectsBy = async (
   userId?: string,
   skip: number = 0,
   limit: number = 20
-) => {
-  const orgIdObject = getObjectId(orgId)
-  const projectSafeData = {
-    name: 1,
-    orgId: 1,
-    dataManagers: 1,
-    reviewers: 1,
-    annotators: 1,
-    createdAt: 1,
-    modifiedAt: 1,
-    storage: 1,
-    isSyncing: 1,
-    syncedAt: 1,
-    taskType: 1,
-    defaultClassId: 1,
+): Promise<any[]> => {
+  let projectIds: string[] | null = null
+
+  if (userId) {
+    // Get projects where user is data manager, reviewer, or annotator
+    const { data: dmProjects } = await supabaseAdmin
+      .from(DB_TABLES.projectDataManagers)
+      .select('project_id')
+      .eq('user_id', userId)
+
+    const { data: reviewerProjects } = await supabaseAdmin
+      .from(DB_TABLES.projectReviewers)
+      .select('project_id')
+      .eq('user_id', userId)
+
+    const { data: annotatorProjects } = await supabaseAdmin
+      .from(DB_TABLES.projectAnnotators)
+      .select('project_id')
+      .eq('user_id', userId)
+
+    const projectIdSet = new Set<string>()
+    for (const p of [...(dmProjects || []), ...(reviewerProjects || []), ...(annotatorProjects || [])]) {
+      projectIdSet.add(p.project_id)
+    }
+    projectIds = Array.from(projectIdSet)
   }
 
-  if (!userId) {
-    const projectList = await ProjectModel.find(
-      { orgId: orgIdObject },
-      projectSafeData
-    )
-    return projectList
+  let query = supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('id, name, org_id, storage, is_syncing, synced_at, task_type, default_class_id, created_at, updated_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .range(skip, skip + limit - 1)
+
+  if (projectIds !== null) {
+    if (projectIds.length === 0) return []
+    query = query.in('id', projectIds)
   }
 
-  const userIdObject = getObjectId(userId)
-  const projectList = await ProjectModel.find(
-    {
-      orgId: orgIdObject,
-      $or: [
-        { dataManagers: { $elemMatch: { $eq: userIdObject } } },
-        { reviewers: { $elemMatch: { $eq: userIdObject } } },
-        { annotators: { $elemMatch: { $eq: userIdObject } } },
-      ],
-    },
-    projectSafeData
-  )
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
+  const { data: projects, error } = await query
 
+  if (error || !projects) {
+    console.error('Error listing projects:', error)
+    return []
+  }
+
+  // Get thumbnails for each project
   const projectListWithThumbnail = []
-  for (const projectDoc of projectList) {
-    const projectJson = projectDoc.toJSON()
+  for (const project of projects) {
+    const { data: file } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('relative_path, url')
+      .eq('project_id', project.id)
+      .eq('type', 'image')
+      .limit(1)
+      .single()
 
     let thumbnail = null
-    const fileDoc = await FileModel.findOne({
-      projectId: projectJson._id,
-      type: 'image',
-    })
-    if (fileDoc) {
-      const fileJson = fileDoc.toJSON()
-      thumbnail =
-        !projectJson.storage || projectJson.storage === 'default'
-          ? fileJson.relativePath
-          : fileJson.url
+    if (file) {
+      thumbnail = !project.storage || project.storage === 'default'
+        ? file.relative_path
+        : file.url
     }
 
-    projectListWithThumbnail.push({ ...projectJson, thumbnail })
+    projectListWithThumbnail.push({ ...project, thumbnail })
   }
 
   return projectListWithThumbnail
 }
 
-export const dbDeleteProject = async (projectId: string) => {
-  const projectDoc = await ProjectModel.findOne({ _id: projectId })
-  if (!projectDoc) return null
+export const dbDeleteProject = async (projectId: string): Promise<ProjectType | null> => {
+  const { data: existingProject } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('*')
+    .eq('id', projectId)
+    .single()
 
-  await projectDoc.deleteOne()
-  // const projectJson = projectDoc.toJSON()
-  // if (projectJson.storage === 'aws') {
-  //   await deleteObjectsWithPrefix(
-  //     projectJson.awsRegion,
-  //     projectJson.awsApiVersion,
-  //     projectJson.awsAccessKeyId,
-  //     projectJson.awsSecretAccessKey,
-  //     projectJson.awsBucketName,
-  //     `${projectJson.id}/`
-  //   )
-  // }
+  if (!existingProject) {
+    return null
+  }
 
-  // if (projectJson.storage === 'azure') {
-  //   await deleteContainer(
-  //     projectJson.azureStorageAccount,
-  //     projectJson.azurePassKey,
-  //     projectJson.azureContainerName
-  //   )
-  // }
-  return projectDoc
+  // Delete project (cascade will handle related records)
+  const { error } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .delete()
+    .eq('id', projectId)
+
+  if (error) {
+    console.error('Error deleting project:', error)
+    return null
+  }
+
+  return existingProject
 }
 
 export const dbAddDataManagerToProject = async (
   projectId: string,
   dataManagerId: string
-) => {
-  const projectDoc = await ProjectModel.findById(projectId)
-  if (!projectDoc) {
+): Promise<void> => {
+  // Check if project exists
+  const { data: project } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('id')
+    .eq('id', projectId)
+    .single()
+
+  if (!project) {
     throw new Error("Project doesn't exist")
   }
 
-  const projectJson = projectDoc.toJSON()
-  const dataManagers = projectJson.dataManagers.map((u) => u.toString())
-  if (dataManagers.includes(dataManagerId)) {
+  // Check if already a data manager
+  const { data: existing } = await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .select('user_id')
+    .eq('project_id', projectId)
+    .eq('user_id', dataManagerId)
+    .single()
+
+  if (existing) {
     return
   }
 
-  const userIdObj = getObjectId(dataManagerId)
-  await ProjectModel.findOneAndUpdate(
-    { _id: getObjectId(projectId) },
-    {
-      $push: { dataManagers: userIdObj },
-      $pull: { annotators: userIdObj, reviewers: userIdObj },
-    }
-  )
+  // Remove from other roles
+  await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', dataManagerId)
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', dataManagerId)
+
+  // Add as data manager
+  await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .insert({ project_id: projectId, user_id: dataManagerId })
 }
 
 export const dbAddReviewerToProject = async (
   projectId: string,
   reviewerId: string
-) => {
-  const projectDoc = await ProjectModel.findById(projectId)
-  if (!projectDoc) {
+): Promise<void> => {
+  const { data: project } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('id')
+    .eq('id', projectId)
+    .single()
+
+  if (!project) {
     throw new Error("Project doesn't exist")
   }
 
-  const projectJson = projectDoc.toJSON()
-  const reviewers = projectJson.reviewers.map((u) => u.toString())
-  if (reviewers.includes(reviewerId)) {
+  // Check if already a reviewer
+  const { data: existing } = await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .select('user_id')
+    .eq('project_id', projectId)
+    .eq('user_id', reviewerId)
+    .single()
+
+  if (existing) {
     return
   }
 
-  const reviewerObjectId = getObjectId(reviewerId)
-  await ProjectModel.findOneAndUpdate(
-    { _id: getObjectId(projectId) },
-    {
-      $push: { reviewers: reviewerObjectId },
-      $pull: { annotators: reviewerObjectId, dataManagers: reviewerObjectId },
-    }
-  )
+  // Remove from other roles
+  await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', reviewerId)
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', reviewerId)
+
+  // Add as reviewer
+  await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .insert({ project_id: projectId, user_id: reviewerId })
 }
 
 export const dbAddAnnotatorToProject = async (
   projectId: string,
   annotatorId: string
-) => {
-  const projectDoc = await ProjectModel.findById(projectId)
-  if (!projectDoc) {
+): Promise<void> => {
+  const { data: project } = await supabaseAdmin
+    .from(DB_TABLES.projects)
+    .select('id')
+    .eq('id', projectId)
+    .single()
+
+  if (!project) {
     throw new Error("Project doesn't exist")
   }
 
-  const projectJson = projectDoc.toJSON()
-  const annotators = projectJson.annotators.map((u) => u.toString())
-  if (annotators.includes(annotatorId)) {
+  // Check if already an annotator
+  const { data: existing } = await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .select('user_id')
+    .eq('project_id', projectId)
+    .eq('user_id', annotatorId)
+    .single()
+
+  if (existing) {
     return
   }
 
-  const annotatorObjectId = getObjectId(annotatorId)
-  await ProjectModel.findOneAndUpdate(
-    { _id: getObjectId(projectId) },
-    {
-      $push: { annotators: annotatorObjectId },
-      $pull: { reviewers: annotatorObjectId, dataManagers: annotatorObjectId },
-    }
-  )
+  // Remove from other roles
+  await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', annotatorId)
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', annotatorId)
+
+  // Add as annotator
+  await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .insert({ project_id: projectId, user_id: annotatorId })
 }
 
 export const dbRemoveUserFromProject = async (
   projectId: string,
   userId: string
-) => {
-  const userObjectId = getObjectId(userId)
-  const projectDoc = await ProjectModel.findOneAndUpdate(
-    { _id: getObjectId(projectId) },
-    {
-      $pull: {
-        dataManagers: userObjectId,
-        reviewers: userObjectId,
-        annotators: userObjectId,
-      },
-    }
-  )
+): Promise<void> => {
+  // Remove from all roles
+  await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+
+  await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
 
   await dbRevertImagesFromUser(projectId, userId)
-
-  return projectDoc
 }
 
-export const getProjectBasicInfo = async (projectId: string) => {
-  const stats = await FileModel.aggregate([
-    {
-      $match: {
-        projectId: getObjectId(projectId),
-      },
-    },
-    {
-      // Group everything to get the total counts
-      $group: {
-        _id: null, // We don't want to group by any specific field, just get overall stats
-        files: { $sum: 1 }, // Total number of files
-        completed: {
-          $sum: { $cond: [{ $eq: ['$complete', true] }, 1, 0] }, // Count where complete is true
-        },
-        skipped: {
-          $sum: { $cond: [{ $eq: ['$skipped', true] }, 1, 0] }, // Count where skipped is true
-        },
-        remaining: {
-          $sum: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ['$complete', false] },
-                  { $eq: ['$skipped', false] },
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-      },
-    },
-    {
-      // Project the final result to remove the _id field
-      $project: {
-        _id: 0,
-        files: 1,
-        completed: 1,
-        skipped: 1,
-        remaining: 1,
-      },
-    },
-  ])
-  return stats[0]
-}
+export const getProjectBasicInfo = async (projectId: string): Promise<{
+  files: number
+  completed: number
+  skipped: number
+  remaining: number
+} | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('complete, skipped')
+    .eq('project_id', projectId)
 
-export const dbGetAnnotatorsStats = async (projectId: string) => {
-  const projectDoc = await ProjectModel.findOne({ _id: getObjectId(projectId) })
-  if (!projectDoc) {
+  if (error) {
+    console.error('Error getting project basic info:', error)
     return null
   }
 
-  const projectJson = projectDoc.toJSON()
-  const annotatorIds = projectJson.annotators.map((annotatorId) =>
-    getObjectId(annotatorId)
-  )
-  const reviewerIds = projectJson.reviewers.map((reviewerId) =>
-    getObjectId(reviewerId)
-  )
-  const dataManagerIds = projectJson.dataManagers.map((dataManagerId) =>
-    getObjectId(dataManagerId.toString())
-  )
-  const allUsers = [...annotatorIds, ...reviewerIds, ...dataManagerIds]
+  const files = data?.length || 0
+  let completed = 0
+  let skipped = 0
+  let remaining = 0
 
-  const stats = await FileModel.aggregate([
-    {
-      $match: {
-        projectId: getObjectId(projectId),
-        annotator: { $in: allUsers },
-      },
-    },
-    {
-      $group: {
-        _id: '$annotator',
-        assignedCount: { $sum: 1 },
-        completedCount: {
-          $sum: { $cond: [{ $eq: ['$complete', true] }, 1, 0] },
-        },
-        skippedCount: {
-          $sum: { $cond: [{ $eq: ['$skipped', true] }, 1, 0] },
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'userInfo',
-      },
-    },
-    {
-      $unwind: {
-        path: '$userInfo',
-        preserveNullAndEmptyArrays: true, // In case there are users without emails
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        userId: '$_id',
-        userName: '$userInfo.name',
-        assignedCount: '$assignedCount',
-        completedCount: '$completedCount',
-        skippedCount: '$skippedCount',
-      },
-    },
-  ])
-
-  for (const userId of allUsers) {
-    const userStats = stats.find(
-      (stat) => stat.userId.toString() === userId.toString()
-    )
-    if (!userStats) {
-      const userDoc = await UserService.dbFindUserById(userId.toString())
-      stats.push({
-        userId: userId.toString(),
-        userName: userDoc?.name || '-',
-        assignedCount: 0,
-        completedCount: 0,
-        skippedCount: 0,
-      })
+  for (const file of data || []) {
+    if (file.complete) {
+      completed++
+    } else if (file.skipped) {
+      skipped++
+    } else {
+      remaining++
     }
   }
 
+  return { files, completed, skipped, remaining }
+}
+
+export const dbGetAnnotatorsStats = async (projectId: string): Promise<any[] | null> => {
+  // Get all project users
+  const { data: dmUsers } = await supabaseAdmin
+    .from(DB_TABLES.projectDataManagers)
+    .select('user_id')
+    .eq('project_id', projectId)
+
+  const { data: reviewerUsers } = await supabaseAdmin
+    .from(DB_TABLES.projectReviewers)
+    .select('user_id')
+    .eq('project_id', projectId)
+
+  const { data: annotatorUsers } = await supabaseAdmin
+    .from(DB_TABLES.projectAnnotators)
+    .select('user_id')
+    .eq('project_id', projectId)
+
+  const allUserIds = [
+    ...(dmUsers || []).map((u) => u.user_id),
+    ...(reviewerUsers || []).map((u) => u.user_id),
+    ...(annotatorUsers || []).map((u) => u.user_id),
+  ]
+
+  if (allUserIds.length === 0) {
+    return []
+  }
+
+  // Get file stats for each user
+  const { data: files } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('annotator_id, complete, skipped')
+    .eq('project_id', projectId)
+    .in('annotator_id', allUserIds)
+
+  // Aggregate stats per user
+  const userStats: { [userId: string]: { assigned: number; completed: number; skipped: number } } = {}
+
+  for (const userId of allUserIds) {
+    userStats[userId] = { assigned: 0, completed: 0, skipped: 0 }
+  }
+
+  for (const file of files || []) {
+    if (file.annotator_id && userStats[file.annotator_id]) {
+      userStats[file.annotator_id].assigned++
+      if (file.complete) {
+        userStats[file.annotator_id].completed++
+      }
+      if (file.skipped) {
+        userStats[file.annotator_id].skipped++
+      }
+    }
+  }
+
+  // Get user info
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name')
+    .in('id', allUserIds)
+
+  const userIdToName: { [id: string]: string } = {}
+  for (const user of users || []) {
+    userIdToName[user.id] = user.name
+  }
+
+  const stats = allUserIds.map((userId) => ({
+    userId,
+    userName: userIdToName[userId] || '-',
+    assignedCount: userStats[userId]?.assigned || 0,
+    completedCount: userStats[userId]?.completed || 0,
+    skippedCount: userStats[userId]?.skipped || 0,
+  }))
+
   return stats
-
-  // const stats = await ActionModel.aggregate([
-  //   // Step 1: Filter by projectId
-  //   {
-  //     $match: {
-  //       projectId: getObjectId(projectId),
-  //       userId: { $in: annotatorIds },
-  //     },
-  //   },
-
-  //   // Step 2: Lookup to join the files collection to ensure the file has the user as the annotator
-  //   {
-  //     $lookup: {
-  //       from: 'files', // Name of the files collection
-  //       localField: 'fileId', // Field from the actions collection
-  //       foreignField: '_id', // Field from the files collection
-  //       as: 'fileInfo', // Output field for file info
-  //     },
-  //   },
-
-  //   // Step 3: Unwind the fileInfo array to work with individual file documents
-  //   {
-  //     $unwind: {
-  //       path: '$fileInfo',
-  //       preserveNullAndEmptyArrays: false, // Ensure files without info are excluded
-  //     },
-  //   },
-
-  //   // Step 4: Match to ensure the user is the annotator of the file
-  //   {
-  //     $match: {
-  //       $expr: { $eq: ['$fileInfo.annotator', '$userId'] }, // Check if user is annotator
-  //     },
-  //   },
-
-  //   // Step 5: Group by userId and fileId to ensure each fileId is counted only once for "viewed" and "skipped"
-  //   {
-  //     $group: {
-  //       _id: { userId: '$userId', fileId: '$fileId' },
-  //       viewedExists: {
-  //         $max: { $cond: [{ $eq: ['$name', 'viewed'] }, 1, 0] },
-  //       },
-  //       annotatedExists: {
-  //         $max: { $cond: [{ $eq: ['$name', 'annotated'] }, 1, 0] },
-  //       },
-  //       skippedExists: {
-  //         $max: { $cond: [{ $eq: ['$name', 'skipped'] }, 1, 0] },
-  //       },
-  //     },
-  //   },
-
-  //   // Step 6: Group again to get the total count of distinct fileIds for each user
-  //   {
-  //     $group: {
-  //       _id: '$_id.userId', // Group by userId
-  //       totalViewed: { $sum: '$viewedExists' }, // Sum viewed counts
-  //       totalAnnotated: { $sum: '$annotatedExists' }, // Sum annotated counts
-  //       totalSkipped: { $sum: '$skippedExists' }, // Sum skipped counts
-  //     },
-  //   },
-
-  //   // Step 7: Join with the users collection to get userName
-  //   {
-  //     $lookup: {
-  //       from: 'users', // Name of the users collection
-  //       localField: '_id', // Field from the input documents
-  //       foreignField: '_id', // Field from the users collection
-  //       as: 'userInfo', // Output array field
-  //     },
-  //   },
-
-  //   // Step 8: Unwind the userInfo array to flatten the structure
-  //   {
-  //     $unwind: {
-  //       path: '$userInfo',
-  //       preserveNullAndEmptyArrays: true, // In case there are users without emails
-  //     },
-  //   },
-
-  //   // Step 9: Add another lookup to count files for each user
-  //   {
-  //     $lookup: {
-  //       from: 'files', // Name of the files collection
-  //       localField: '_id', // This is the userId from the previous grouping
-  //       foreignField: 'annotator', // This is the annotator field in the files collection
-  //       as: 'userFiles', // Output array field for user files
-  //     },
-  //   },
-
-  //   // Step 10: Count the files for each user
-  //   {
-  //     $addFields: {
-  //       assignedCount: { $size: '$userFiles' }, // Count the number of files for each user
-  //     },
-  //   },
-
-  //   // Step 11: Project the final result in a readable format
-  //   {
-  //     $project: {
-  //       _id: 0,
-  //       userId: '$_id', // Include userId
-  //       userName: '$userInfo.name', // Include userName from the userInfo
-  //       viewedCount: '$totalViewed', // Include total viewed count
-  //       annotatedCount: '$totalAnnotated', // Include total annotated
-  //       skippedCount: '$totalSkipped', // Include total skipped count
-  //       assignedCount: 1,
-  //     },
-  //   },
-  // ])
 }
 
 export const dbAddAutoAnnotations = async (
@@ -696,52 +797,45 @@ export const dbAddAutoAnnotations = async (
       h: number
     }[]
   }
-) => {
+): Promise<void> => {
   const fileNameToId: { [fileName: string]: string } = {}
   const classIdToColor: { [classId: string]: string } = {}
-  const shapesToInsert: Omit<Omit<ShapeType, 'id'>, '_id'>[] = []
+  const shapesToInsert: any[] = []
 
-  const filesCount = await FileModel.countDocuments({
-    orgId: getObjectId(orgId),
-    projectId: getObjectId(projectId),
-    complete: false,
-    skipped: false,
-  })
+  // Get all incomplete files
+  const { count: filesCount } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .eq('project_id', projectId)
+    .eq('complete', false)
+    .eq('skipped', false)
+
   let fileSkip = 0
-  while (fileSkip < filesCount) {
-    const fileDocs = await FileModel.find(
-      {
-        orgId: getObjectId(orgId),
-        projectId: getObjectId(projectId),
-        complete: false,
-        skipped: false,
-      },
-      { _id: 1, name: 1 }
-    )
-      .limit(1000)
-      .skip(fileSkip)
-    for (const fileDoc of fileDocs) {
-      fileNameToId[fileDoc.name] = fileDoc._id.toString()
+  while (fileSkip < (filesCount || 0)) {
+    const { data: files } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('id, name')
+      .eq('org_id', orgId)
+      .eq('project_id', projectId)
+      .eq('complete', false)
+      .eq('skipped', false)
+      .range(fileSkip, fileSkip + 999)
+
+    for (const file of files || []) {
+      fileNameToId[file.name] = file.id
     }
 
     fileSkip += 1000
   }
 
-  for (const fileName in fileNameToId) {
+  for (const fileName in prompts) {
     const fileId = fileNameToId[fileName]
     if (!fileId) {
       continue
     }
 
-    const shapesJson: {
-      type: 'polygon' | 'rectangle'
-      classId?: string
-      points: { x: number; y: number }[]
-      x: number
-      y: number
-      w: number
-      h: number
-    }[] = prompts[fileName]
+    const shapesJson = prompts[fileName]
     if (!shapesJson) {
       continue
     }
@@ -754,7 +848,7 @@ export const dbAddAutoAnnotations = async (
         if (classIdToColor[shape.classId]) {
           color = classIdToColor[shape.classId]
         } else {
-          const classDoc = await AnnotationClassModel.findById(shape.classId)
+          const classDoc = await dbGetAnnotationClassById(shape.classId)
           if (classDoc) {
             color = classDoc.color
             classIdToColor[shape.classId] = classDoc.color
@@ -763,266 +857,225 @@ export const dbAddAutoAnnotations = async (
       }
 
       shapesToInsert.push({
-        orgId: getObjectId(orgId),
-        projectId: getObjectId(projectId),
-        fileId: getObjectId(fileId),
+        org_id: orgId,
+        project_id: projectId,
+        file_id: fileId,
         type: shape.type,
         ...(shape.x && { x: shape.x }),
         ...(shape.y && { y: shape.y }),
         ...(shape.w && { width: shape.w }),
         ...(shape.h && { height: shape.h }),
-        ...(shape.classId && { classId: getObjectId(shape.classId) }),
+        ...(shape.classId && { class_id: shape.classId }),
         ...(shape.points && {
           points: shape.points.map((v) => ({
-            id: getObjectId().toString(),
+            id: uuidv4(),
             x: v.x,
             y: v.y,
           })),
         }),
         name: `auto ${i + 1}`,
         stroke: color,
-        atFrame: 1,
-        strokeWidth: 2,
+        at_frame: 1,
+        stroke_width: 2,
         notes: '',
       })
     }
   }
 
-  let skip = 0
-  while (skip < shapesToInsert.length) {
-    await ShapeModel.insertMany(shapesToInsert.slice(skip, skip + 1000))
-    skip += 1000
-  }
+  await dbInsertManyShapes(shapesToInsert)
 }
 
-export const dbExportAnnotations = async (projectId: string) => {
-  const exportJson: {
-    [fileName: string]: {
-      height?: number
-      width?: number
-      status: 'completed' | 'skipped' | ''
-      completedAt: Date | string | undefined
-      completedBy: string
-      annotations: {
-        points: any
-        className: string
-      }[]
-    }
-  } = {}
-  // Creating userId to userName mapping
+export const dbExportAnnotations = async (projectId: string): Promise<any> => {
+  const exportJson: { [fileName: string]: any } = {}
+
+  // Get all users
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name')
+
   const userIdToName: { [userId: string]: string } = {}
-  const userDocs = await UserModel.find({})
-  for (const userDoc of userDocs) {
-    userIdToName[userDoc._id.toString()] = userDoc.name
+  for (const user of users || []) {
+    userIdToName[user.id] = user.name
   }
 
-  const classDocs = await AnnotationClassModel.find({
-    projectId: getObjectId(projectId),
-  })
+  // Get annotation classes
+  const annotationClasses = await dbGetAnnotationClasses(projectId, projectId, 0, 10000)
   const classIdToName: { [classId: string]: string } = {}
-  for (const classDoc of classDocs) {
-    classIdToName[classDoc._id.toString()] = classDoc.name
+  for (const cls of annotationClasses) {
+    classIdToName[cls.id] = cls.name
   }
 
-  const filesCount = await FileModel.countDocuments({
-    projectId: getObjectId(projectId),
-  })
+  // Get files count
+  const { count: filesCount } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
 
   let skip = 0
-  let limit = 1000
-  while (skip < filesCount) {
-    const files = await FileModel.find({
-      projectId: getObjectId(projectId),
-    })
-      .sort({ createdAt: 'asc' })
-      .skip(skip)
-      .limit(limit)
+  const limit = 1000
+  while (skip < (filesCount || 0)) {
+    const { data: files } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true })
+      .range(skip, skip + limit - 1)
 
-    const fileIdToName: { [fileName: string]: string } = {}
-    for (const file of files) {
-      const fileJson = file.toJSON()
-      fileIdToName[fileJson._id.toString()] = fileJson.name
+    const fileIdToName: { [id: string]: string } = {}
+    for (const file of files || []) {
+      fileIdToName[file.id] = file.name
 
-      // Converting UTC date to EST
-      let completedAt: Date | string | undefined = fileJson.complete
-        ? fileJson.completedAt
-        : fileJson.skipped
-        ? fileJson.skippedAt
+      let completedAt: Date | string | undefined = file.complete
+        ? file.completed_at
+        : file.skipped
+        ? file.skipped_at
         : undefined
+
       if (completedAt) {
         const timeZone = 'America/New_York'
         const easternTime = toZonedTime(new Date(completedAt), timeZone)
-        const formattedDate = format(easternTime, 'yyyy-MM-dd HH:mm:ss', {
-          timeZone,
-        })
-        completedAt = formattedDate
+        completedAt = format(easternTime, 'yyyy-MM-dd HH:mm:ss', { timeZone })
       }
 
-      // Handling status
       let status: 'completed' | 'skipped' | '' = ''
-      if (fileJson.complete) {
+      if (file.complete) {
         status = 'completed'
-      } else if (fileJson.skipped) {
+      } else if (file.skipped) {
         status = 'skipped'
       }
 
-      exportJson[fileJson.name] = {
-        ...(fileJson.height && { height: fileJson.height }),
-        ...(fileJson.width && { width: fileJson.width }),
+      exportJson[file.name] = {
+        ...(file.height && { height: file.height }),
+        ...(file.width && { width: file.width }),
         status,
         completedAt,
-        completedBy: fileJson.annotator
-          ? userIdToName[fileJson.annotator.toString()]
-          : '',
+        completedBy: file.annotator_id ? userIdToName[file.annotator_id] : '',
         annotations: [],
       }
     }
 
-    const fileIds = files.map((file) => file._id)
-    const shapes = await ShapeModel.find({
-      fileId: { $in: fileIds },
-    })
+    const fileIds = (files || []).map((f) => f.id)
+    const shapes = await dbGetShapesByFileIds(fileIds)
 
     for (const shape of shapes) {
-      const shapeJson = shape.toJSON()
-      const fileId = shapeJson.fileId.toString()
-      const classId = shapeJson.classId
+      const fileName = fileIdToName[shape.file_id]
+      if (!fileName) continue
+
+      const classId = shape.class_id
       let className = ''
       if (classId) {
-        className = classIdToName[classId?.toString()]
+        className = classIdToName[classId] || ''
       }
-      const fileName = fileIdToName[fileId]
 
       if (shape.type === 'rectangle') {
-        let dx = shapeJson.x! + shapeJson.width!
-        let dy = shapeJson.y! + shapeJson.height!
-
-        let x1 = Math.min(shapeJson.x!, dx)
-        let y1 = Math.min(shapeJson.y!, dy)
-        let x2 = Math.max(shapeJson.x!, dx)
-        let y2 = Math.max(shapeJson.y!, dy)
-        let w = x2 - x1
-        let h = y2 - y1
+        const dx = shape.x! + shape.width!
+        const dy = shape.y! + shape.height!
+        const x1 = Math.min(shape.x!, dx)
+        const y1 = Math.min(shape.y!, dy)
+        const x2 = Math.max(shape.x!, dx)
+        const y2 = Math.max(shape.y!, dy)
+        const w = x2 - x1
+        const h = y2 - y1
 
         exportJson[fileName].annotations.push({
           points: [
             { x: parseFloat(x1.toFixed(3)), y: parseFloat(y1.toFixed(3)) },
-            {
-              x: parseFloat((x1 + w).toFixed(3)),
-              y: parseFloat(y1.toFixed(3)),
-            },
-            {
-              x: parseFloat(x1.toFixed(3)),
-              y: parseFloat((y1 + h).toFixed(3)),
-            },
+            { x: parseFloat((x1 + w).toFixed(3)), y: parseFloat(y1.toFixed(3)) },
+            { x: parseFloat(x1.toFixed(3)), y: parseFloat((y1 + h).toFixed(3)) },
             { x: parseFloat(x2.toFixed(3)), y: parseFloat(y2.toFixed(3)) },
           ],
-          className: className,
+          className,
         })
-      } else if (
-        shape.type === 'polygon' &&
-        shapeJson.points &&
-        shapeJson.points.length > 0
-      ) {
+      } else if (shape.type === 'polygon' && shape.points && shape.points.length > 0) {
         exportJson[fileName].annotations.push({
-          points: shapeJson.points.map((p) => ({
+          points: shape.points.map((p: any) => ({
             x: parseFloat(p.x.toFixed(3)),
             y: parseFloat(p.y.toFixed(3)),
           })),
-          className: className,
+          className,
         })
       }
     }
 
     skip += limit
   }
+
   return exportJson
 }
 
-export const dbExportClassifications = async (projectId: string) => {
-  const exportJson: {
-    [fileName: string]: {
-      height?: number
-      width?: number
-      status: 'completed' | 'skipped' | ''
-      completedAt: Date | string | undefined
-      completedBy: string
-      classes: string[]
-    }
-  } = {}
+export const dbExportClassifications = async (projectId: string): Promise<any> => {
+  const exportJson: { [fileName: string]: any } = {}
 
-  // Creating userId to userName mapping
+  // Get all users
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name')
+
   const userIdToName: { [userId: string]: string } = {}
-  const userDocs = await UserModel.find({})
-  for (const userDoc of userDocs) {
-    userIdToName[userDoc._id.toString()] = userDoc.name
+  for (const user of users || []) {
+    userIdToName[user.id] = user.name
   }
 
-  const annotationClasses = await AnnotationClassModel.find({
-    projectId: getObjectId(projectId),
-  })
+  // Get annotation classes
+  const annotationClasses = await dbGetAnnotationClasses(projectId, projectId, 0, 10000)
   const classIdToName: { [classId: string]: string } = {}
-  for (const annotationClass of annotationClasses) {
-    const annotationClassJson = annotationClass.toJSON()
-    classIdToName[annotationClassJson._id.toString()] = annotationClassJson.name
+  for (const cls of annotationClasses) {
+    classIdToName[cls.id] = cls.name
   }
 
-  const filesCount = await FileModel.countDocuments({
-    projectId: getObjectId(projectId),
-  })
+  // Get files count
+  const { count: filesCount } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
 
   let skip = 0
-  let limit = 1000
-  while (skip < filesCount) {
-    const files = await FileModel.find({
-      projectId: getObjectId(projectId),
-    })
-      .sort({ createdAt: 'asc' })
-      .skip(skip)
-      .limit(limit)
+  const limit = 1000
+  while (skip < (filesCount || 0)) {
+    const { data: files } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true })
+      .range(skip, skip + limit - 1)
 
-    for (const file of files) {
-      const fileJson = file.toJSON()
-
-      // Converting UTC date to EST
-      let completedAt: Date | string | undefined = fileJson.complete
-        ? fileJson.completedAt
-        : fileJson.skipped
-        ? fileJson.skippedAt
+    for (const file of files || []) {
+      let completedAt: Date | string | undefined = file.complete
+        ? file.completed_at
+        : file.skipped
+        ? file.skipped_at
         : undefined
+
       if (completedAt) {
         const timeZone = 'America/New_York'
         const easternTime = toZonedTime(new Date(completedAt), timeZone)
-        const formattedDate = format(easternTime, 'yyyy-MM-dd HH:mm:ss', {
-          timeZone,
-        })
-        completedAt = formattedDate
+        completedAt = format(easternTime, 'yyyy-MM-dd HH:mm:ss', { timeZone })
       }
 
-      // Handling status
       let status: 'completed' | 'skipped' | '' = ''
-      if (fileJson.complete) {
+      if (file.complete) {
         status = 'completed'
-      } else if (fileJson.skipped) {
+      } else if (file.skipped) {
         status = 'skipped'
       }
 
-      exportJson[fileJson.name] = {
-        ...(fileJson.height && { height: fileJson.height }),
-        ...(fileJson.width && { width: fileJson.width }),
+      // Get file tags
+      const { data: fileTags } = await supabaseAdmin
+        .from(DB_TABLES.fileTags)
+        .select('class_id')
+        .eq('file_id', file.id)
+
+      const classes = (fileTags || [])
+        .map((t) => classIdToName[t.class_id])
+        .filter((c) => c)
+
+      exportJson[file.name] = {
+        ...(file.height && { height: file.height }),
+        ...(file.width && { width: file.width }),
         status,
         completedAt,
-        completedBy: fileJson.annotator
-          ? userIdToName[fileJson.annotator.toString()]
-          : '',
-        classes: [],
-      }
-
-      for (const tag of fileJson.tags) {
-        const className = classIdToName[tag.toString()]
-        if (className) {
-          exportJson[fileJson.name].classes.push(className)
-        }
+        completedBy: file.annotator_id ? userIdToName[file.annotator_id] : '',
+        classes,
       }
     }
 
@@ -1032,275 +1085,224 @@ export const dbExportClassifications = async (projectId: string) => {
   return exportJson
 }
 
-export const dbExportImageStats = async (projectId: string) => {
-  const projectDoc = await ProjectModel.findOne({ _id: getObjectId(projectId) })
-  if (!projectDoc) {
+export const dbExportImageStats = async (projectId: string): Promise<string | null> => {
+  const project = await dbGetProjectById(projectId)
+  if (!project) {
     return null
   }
 
-  // Creating userId to userName mapping
+  // Get all users
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name')
+
   const userIdToName: { [userId: string]: string } = {}
-  const userDocs = await UserModel.find({})
-  for (const userDoc of userDocs) {
-    userIdToName[userDoc._id.toString()] = userDoc.name
+  for (const user of users || []) {
+    userIdToName[user.id] = user.name
   }
 
-  // Creating classId to className mapping
+  // Get annotation classes
+  const annotationClasses = await dbGetAnnotationClasses(projectId, projectId, 0, 10000)
   const classIdToName: { [classId: string]: string } = {}
-  const classDocs = await AnnotationClassModel.find({
-    projectId: getObjectId(projectId),
-  })
-  for (const classDoc of classDocs) {
-    classIdToName[classDoc._id.toString()] = classDoc.name
+  for (const cls of annotationClasses) {
+    classIdToName[cls.id] = cls.name
   }
 
-  const projectJson = projectDoc.toJSON()
-  const result: {
-    name: string
-    height?: number
-    width?: number
-    status: 'completed' | 'skipped' | ''
-    completedAt: Date | string | undefined
-    completedBy: string
-    classes: string[]
-  }[] = []
-  const filesCount = await FileModel.countDocuments()
-  let skip = 0
-  while (skip < filesCount) {
-    const files = await FileModel.find({ projectId: getObjectId(projectId) })
-      .skip(skip)
-      .limit(1000)
-    for (const file of files) {
-      const fileJson = file.toJSON()
+  const result: any[] = []
+  const { count: filesCount } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
 
-      // Handling filename
-      let fileName = fileJson.name
-      const containerName =
-        projectJson.storage === 'azure' ? projectJson.azureContainerName : null
+  let skip = 0
+  while (skip < (filesCount || 0)) {
+    const { data: files } = await supabaseAdmin
+      .from(DB_TABLES.files)
+      .select('*')
+      .eq('project_id', projectId)
+      .range(skip, skip + 999)
+
+    for (const file of files || []) {
+      let fileName = file.name
+      const containerName = project.storage === 'azure' ? project.azure_container_name : null
       if (containerName) {
         fileName = `${containerName.split('/')[0]}/${fileName}`
       }
 
-      // Converting UTC date to EST
-      let completedAt: Date | string | undefined = fileJson.complete
-        ? fileJson.completedAt
-        : fileJson.skipped
-        ? fileJson.skippedAt
+      let completedAt: Date | string | undefined = file.complete
+        ? file.completed_at
+        : file.skipped
+        ? file.skipped_at
         : undefined
+
       if (completedAt) {
         const timeZone = 'America/New_York'
         const easternTime = toZonedTime(new Date(completedAt), timeZone)
-        const formattedDate = format(easternTime, 'yyyy-MM-dd HH:mm:ss', {
-          timeZone,
-        })
-        completedAt = formattedDate
+        completedAt = format(easternTime, 'yyyy-MM-dd HH:mm:ss', { timeZone })
       }
 
-      // Handling status
       let status: 'completed' | 'skipped' | '' = ''
-      if (fileJson.complete) {
+      if (file.complete) {
         status = 'completed'
-      } else if (fileJson.skipped) {
+      } else if (file.skipped) {
         status = 'skipped'
       }
 
+      // Get file tags
+      const { data: fileTags } = await supabaseAdmin
+        .from(DB_TABLES.fileTags)
+        .select('class_id')
+        .eq('file_id', file.id)
+
+      const classes = (fileTags || [])
+        .map((t) => classIdToName[t.class_id])
+        .filter((c) => c)
+
       result.push({
         name: fileName,
-        status: status,
-        completedAt: completedAt,
-        completedBy: fileJson.annotator
-          ? userIdToName[fileJson.annotator.toString()]
-          : '',
-        classes: fileJson.tags.map((tag) => classIdToName[tag.toString()]),
-        ...(fileJson.height && { height: fileJson.height }),
-        ...(fileJson.width && { width: fileJson.width }),
+        status,
+        completedAt,
+        completedBy: file.annotator_id ? userIdToName[file.annotator_id] : '',
+        classes,
+        ...(file.height && { height: file.height }),
+        ...(file.width && { width: file.width }),
       })
     }
+
     skip += 1000
   }
 
-  const csvResult = parse(result)
-  return csvResult
+  return parse(result)
 }
 
 export const dbRevertImagesFromUser = async (
   projectId: string,
   userId: string
-) => {
-  await FileModel.updateMany(
-    {
-      projectId: getObjectId(projectId),
-      annotator: getObjectId(userId),
-      complete: false,
-    },
-    { $set: { annotator: null, assignedAt: null } }
-  )
+): Promise<void> => {
+  await supabaseAdmin
+    .from(DB_TABLES.files)
+    .update({ annotator_id: null, assigned_at: null })
+    .eq('project_id', projectId)
+    .eq('annotator_id', userId)
+    .eq('complete', false)
 }
 
 export const dbGetCompletedRangeStats = async (
   projectId: string,
   start: Date,
   end: Date
-) => {
+): Promise<any[]> => {
   const allDates: { [date: string]: number } = {}
   let currentDate = new Date(start)
   while (currentDate <= end) {
-    const dateStr = currentDate.toISOString().split('T')[0] // YYYY-MM-DD
-    allDates[dateStr] = 0 // Initialize with 0
+    const dateStr = currentDate.toISOString().split('T')[0]
+    allDates[dateStr] = 0
     currentDate.setDate(currentDate.getDate() + 1)
   }
 
-  // Step 1: Aggregate completed and skipped counts per annotator per day
-  const result = await FileModel.aggregate([
-    {
-      $match: {
-        projectId: getObjectId(projectId),
-        $or: [
-          { completedAt: { $gte: start, $lte: end } },
-          { skippedAt: { $gte: start, $lte: end } },
-        ],
-      },
-    },
-    {
-      $project: {
-        annotator: 1,
-        date: {
-          $cond: {
-            if: { $gt: ['$completedAt', '$skippedAt'] },
-            then: {
-              $dateToString: { format: '%Y-%m-%d', date: '$completedAt' },
-            },
-            else: { $dateToString: { format: '%Y-%m-%d', date: '$skippedAt' } },
-          },
-        },
-        total: {
-          $add: [
-            { $cond: [{ $ifNull: ['$completedAt', false] }, 1, 0] },
-            { $cond: [{ $ifNull: ['$skippedAt', false] }, 1, 0] },
-          ],
-        },
-      },
-    },
-    {
-      $group: {
-        _id: { annotator: '$annotator', date: '$date' },
-        total: { $sum: '$total' },
-      },
-    },
-    {
-      $group: {
-        _id: '$_id.annotator',
-        series: {
-          $push: {
-            date: '$_id.date',
-            total: '$total',
-          },
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'annotator',
-      },
-    },
-    {
-      $unwind: '$annotator',
-    },
-    {
-      $project: {
-        _id: 0,
-        annotatorId: '$_id',
-        annotatorName: '$annotator.name',
-        annotatorEmail: '$annotator.email',
-        series: 1,
-      },
-    },
-  ])
+  // Get files in date range
+  const { data: files } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('annotator_id, completed_at, skipped_at')
+    .eq('project_id', projectId)
+    .or(`completed_at.gte.${start.toISOString()},skipped_at.gte.${start.toISOString()}`)
+    .or(`completed_at.lte.${end.toISOString()},skipped_at.lte.${end.toISOString()}`)
 
-  // Step 2: Fill missing dates with total 0
-  const finalResult = result.map(
-    (user: {
-      annotatorId: string
-      annotatorName: string
-      annotatorEmail: string
-      series: { date: string; total: number }[]
-    }) => {
-      // Create a full date range for each annotator
-      const filledSeries = { ...allDates } // Clone the date map with zeros
+  // Aggregate by annotator and date
+  const annotatorStats: { [annotatorId: string]: { [date: string]: number } } = {}
 
-      // Populate actual data from aggregation result
-      user.series.forEach(({ date, total }) => {
-        filledSeries[date] = total
-      })
+  for (const file of files || []) {
+    if (!file.annotator_id) continue
 
-      // Convert back to an array format
-      user.series = Object.entries(filledSeries).map(([date, total]) => ({
-        date: new Date(date).toUTCString(),
-        total,
-      }))
+    const date = file.completed_at
+      ? new Date(file.completed_at).toISOString().split('T')[0]
+      : file.skipped_at
+      ? new Date(file.skipped_at).toISOString().split('T')[0]
+      : null
 
-      return user
+    if (!date) continue
+
+    if (!annotatorStats[file.annotator_id]) {
+      annotatorStats[file.annotator_id] = { ...allDates }
     }
-  )
 
-  return finalResult.sort((a, b) =>
-    a.annotatorName.localeCompare(b.annotatorName)
-  )
+    annotatorStats[file.annotator_id][date] = (annotatorStats[file.annotator_id][date] || 0) + 1
+  }
+
+  // Get user info
+  const annotatorIds = Object.keys(annotatorStats)
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email')
+    .in('id', annotatorIds)
+
+  const userInfo: { [id: string]: { name: string; email: string } } = {}
+  for (const user of users || []) {
+    userInfo[user.id] = { name: user.name, email: user.email }
+  }
+
+  const result = annotatorIds.map((annotatorId) => ({
+    annotatorId,
+    annotatorName: userInfo[annotatorId]?.name || '-',
+    annotatorEmail: userInfo[annotatorId]?.email || '-',
+    series: Object.entries(annotatorStats[annotatorId]).map(([date, total]) => ({
+      date: new Date(date).toUTCString(),
+      total,
+    })),
+  }))
+
+  return result.sort((a, b) => a.annotatorName.localeCompare(b.annotatorName))
 }
 
 export const dbGetTopAnnotators = async (
   projectId: string,
   start: Date,
   end: Date
-) => {
-  const result = await FileModel.aggregate([
-    {
-      $match: {
-        projectId: getObjectId(projectId), // Filter by project
-        $or: [
-          { completedAt: { $gte: start, $lte: end } },
-          { skippedAt: { $gte: start, $lte: end } },
-        ],
-      },
-    },
-    {
-      $group: {
-        _id: '$annotator',
-        completed: {
-          $sum: { $cond: [{ $ifNull: ['$completedAt', false] }, 1, 0] },
-        },
-        skipped: {
-          $sum: { $cond: [{ $ifNull: ['$skippedAt', false] }, 1, 0] },
-        },
-      },
-    },
-    {
-      $sort: { completed: -1 }, // Sort by completed count in descending order
-    },
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'annotator',
-      },
-    },
-    {
-      $unwind: '$annotator',
-    },
-    {
-      $project: {
-        _id: 0,
-        annotatorId: '$_id',
-        annotatorName: '$annotator.name',
-        annotatorEmail: '$annotator.email',
-        completed: 1,
-        skipped: 1,
-      },
-    },
-  ])
-  return result
+): Promise<any[]> => {
+  // Get files in date range
+  const { data: files } = await supabaseAdmin
+    .from(DB_TABLES.files)
+    .select('annotator_id, completed_at, skipped_at')
+    .eq('project_id', projectId)
+    .or(`completed_at.gte.${start.toISOString()},skipped_at.gte.${start.toISOString()}`)
+
+  // Aggregate by annotator
+  const annotatorStats: { [annotatorId: string]: { completed: number; skipped: number } } = {}
+
+  for (const file of files || []) {
+    if (!file.annotator_id) continue
+
+    if (!annotatorStats[file.annotator_id]) {
+      annotatorStats[file.annotator_id] = { completed: 0, skipped: 0 }
+    }
+
+    if (file.completed_at) {
+      annotatorStats[file.annotator_id].completed++
+    }
+    if (file.skipped_at) {
+      annotatorStats[file.annotator_id].skipped++
+    }
+  }
+
+  // Get user info
+  const annotatorIds = Object.keys(annotatorStats)
+  const { data: users } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email')
+    .in('id', annotatorIds)
+
+  const userInfo: { [id: string]: { name: string; email: string } } = {}
+  for (const user of users || []) {
+    userInfo[user.id] = { name: user.name, email: user.email }
+  }
+
+  const result = annotatorIds.map((annotatorId) => ({
+    annotatorId,
+    annotatorName: userInfo[annotatorId]?.name || '-',
+    annotatorEmail: userInfo[annotatorId]?.email || '-',
+    completed: annotatorStats[annotatorId].completed,
+    skipped: annotatorStats[annotatorId].skipped,
+  }))
+
+  return result.sort((a, b) => b.completed - a.completed)
 }

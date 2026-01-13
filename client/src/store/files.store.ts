@@ -109,13 +109,15 @@ export const useFilesStore = create<FilesStoreState>((set, get) => ({
     set((state) => ({
       files: state.files.map((f) => {
         if (f.id === fileId) {
+          const metadata = f.metadata as unknown as Record<string, unknown[]>
+          const currentShapes = metadata[shapeName] || []
           return {
             ...f,
             metadata: {
               ...f.metadata,
-              [shapeName]: [...f.metadata[shapeName], uShape]
+              [shapeName]: [...currentShapes, uShape]
             }
-          }
+          } as typeof f
         }
 
         return f
@@ -127,18 +129,20 @@ export const useFilesStore = create<FilesStoreState>((set, get) => ({
     set((state) => ({
       files: state.files.map((f) => {
         if (f.id === fileId) {
+          const metadata = f.metadata as unknown as Record<string, Array<{ id: string }>>
+          const currentShapes = metadata[shapeName] || []
           return {
             ...f,
             metadata: {
               ...f.metadata,
-              [shapeName]: f.metadata[shapeName].map((s) => {
+              [shapeName]: currentShapes.map((s) => {
                 if (s.id === shapeId) {
                   return { ...s, ...uShape }
                 }
                 return s
               })
             }
-          }
+          } as typeof f
         }
 
         return f
@@ -150,13 +154,15 @@ export const useFilesStore = create<FilesStoreState>((set, get) => ({
     set((state) => ({
       files: state.files.map((f) => {
         if (f.id === fileId) {
+          const metadata = f.metadata as unknown as Record<string, Array<{ id: string }>>
+          const currentShapes = metadata[shapeName] || []
           return {
             ...f,
             metadata: {
               ...f.metadata,
-              [shapeName]: f.metadata[shapeName].filter((s) => s.id !== shapeId)
+              [shapeName]: currentShapes.filter((s) => s.id !== shapeId)
             }
-          }
+          } as typeof f
         }
 
         return f

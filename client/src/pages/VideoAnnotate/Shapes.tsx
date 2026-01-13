@@ -1,7 +1,6 @@
 import Konva from 'konva'
 import { FC, RefObject, useCallback, useEffect } from 'react'
 import { Layer } from 'react-konva'
-import { useParams } from 'react-router-dom'
 
 import VideoPolygon from './VideoPolygon'
 import VideoRectangle from './VideoRectangle'
@@ -74,14 +73,15 @@ const Shapes: FC<ShapesProps> = ({
   const restoreAnnotations = useCallback(() => {
     const scaleX = imgSize.offsetWidth / imgSize.naturalWidth
     const scaleY = imgSize.offsetHeight / imgSize.naturalHeight
-    const savedPolygons = fileObj?.metadata?.polygons || {}
-    const savedRectangles = fileObj?.metadata?.rectangles || {}
-    const savedCircles = fileObj?.metadata?.circles || {}
-    const savedFaces = fileObj?.metadata?.faces || {}
-    const savedLines = fileObj?.metadata?.lines || {}
+    const savedPolygons = (fileObj?.metadata?.polygons || {}) as VideoPolygonType
+    const savedRectangles = (fileObj?.metadata?.rectangles || {}) as VideoRectangleType
+    const savedCircles = (fileObj?.metadata?.circles || {}) as VideoCircleType
+    const savedFaces = (fileObj?.metadata?.faces || {}) as VideoFaceType
+    const savedLines = (fileObj?.metadata?.lines || {}) as VideoLineType
 
     const scaledPolygons: VideoPolygonType = {}
-    for (const frame of Object.keys(savedPolygons)) {
+    for (const frameKey of Object.keys(savedPolygons)) {
+      const frame = Number(frameKey)
       if (!scaledPolygons[frame]) {
         scaledPolygons[frame] = []
       }
@@ -92,7 +92,8 @@ const Shapes: FC<ShapesProps> = ({
     }
 
     const scaledLines: VideoLineType = {}
-    for (const frame of Object.keys(savedLines)) {
+    for (const frameKey of Object.keys(savedLines)) {
+      const frame = Number(frameKey)
       if (!scaledLines[frame]) {
         scaledLines[frame] = []
       }
@@ -103,7 +104,8 @@ const Shapes: FC<ShapesProps> = ({
     }
 
     const scaledFaces: VideoFaceType = {}
-    for (const frame of Object.keys(savedFaces)) {
+    for (const frameKey of Object.keys(savedFaces)) {
+      const frame = Number(frameKey)
       if (!scaledFaces[frame]) {
         scaledFaces[frame] = []
       }
@@ -114,7 +116,8 @@ const Shapes: FC<ShapesProps> = ({
     }
 
     const scaledRectangles: VideoRectangleType = {}
-    for (const frame of Object.keys(savedRectangles)) {
+    for (const frameKey of Object.keys(savedRectangles)) {
+      const frame = Number(frameKey)
       if (!scaledRectangles[frame]) {
         scaledRectangles[frame] = []
       }
@@ -131,7 +134,8 @@ const Shapes: FC<ShapesProps> = ({
     }
 
     const scaledCircles: VideoCircleType = {}
-    for (const frame of Object.keys(savedCircles)) {
+    for (const frameKey of Object.keys(savedCircles)) {
+      const frame = Number(frameKey)
       if (!scaledCircles[frame]) {
         scaledCircles[frame] = []
       }

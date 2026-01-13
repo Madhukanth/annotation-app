@@ -1,11 +1,10 @@
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider, useRouteError } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 
 import Home from '@renderer/pages/Home'
 import Layout from './layouts/Layout'
 import Login from './pages/Login'
-import { fetchOrganization, setAuthToken, setAxiosDefaults } from './helpers/axiosRequests'
+import Signup from './pages/Signup'
 import ProtectedRoutes from './components/ProtectedRoute'
 import { useUserStore } from './store/user.store'
 import Projects from './pages/Projects'
@@ -14,7 +13,6 @@ import Invites from './pages/Invites'
 import EditProject from './pages/EditProject'
 import AnnotatePage from './pages/AnnotatePage'
 import ClassifyPage from './pages/ClassifyPage'
-import { getAuthTokenFromCookie, getUserInfoFromCookie } from './helpers/cookie'
 import { useOrgStore } from './store/organization.store'
 import { useClassesStore } from './store/classes.store'
 import InviteLayout from './layouts/InviteLayout'
@@ -29,6 +27,10 @@ import ProjectReview from './components/ProjectView/ProjectReview/ProjectReview'
 import Classes from './pages/Classes/Classes'
 import ProjectStats from './pages/ProjectStats'
 import AllowedProjectMembers from './components/AllowedProjectMember'
+import { organizationsKeys } from '@/hooks/useOrganizations'
+import { supabase } from '@/lib/supabase'
+import { organizationsService } from './services/supabase'
+import { useQuery } from '@tanstack/react-query'
 
 function ErrorBoundary() {
   const error = useRouteError()
@@ -40,6 +42,7 @@ function ErrorBoundary() {
 const router = createBrowserRouter([
   { path: '', element: <Home />, errorElement: <ErrorBoundary /> },
   { path: 'login', element: <Login />, errorElement: <ErrorBoundary /> },
+  { path: 'signup', element: <Signup />, errorElement: <ErrorBoundary /> },
   {
     path: 'invites', // '/invites'
     element: (
@@ -156,52 +159,96 @@ const router = createBrowserRouter([
 const App = () => {
   const user = useUserStore((s) => s.user)
   const setUser = useUserStore((s) => s.setUser)
-  const [loading, setLoading] = useState(true)
+  const [authInitialized, setAuthInitialized] = useState(false)
   const setSelectedOrg = useOrgStore((s) => s.setSelectedOrg)
   const setOrgs = useOrgStore((s) => s.setOrgs)
+  const clearOrgs = useOrgStore((s) => s.clearOrgs)
   const setSelectedTagIds = useClassesStore((state) => state.setSelectedTagIds)
 
-  const { data: organizations, isLoading: fetchingOrgs } = useQuery(
-    ['organizations', { userId: user?.id! }],
-    fetchOrganization,
-    { initialData: [], enabled: !!user }
-  )
+  // Fetch organizations when user is available
+  const { data: organizations = [], isFetching: fetchingOrgs } = useQuery({
+    queryKey: organizationsKeys.list(user?.id || ''),
+    queryFn: () => organizationsService.getOrganizations(user?.id || ''),
+    enabled: !!user?.id && authInitialized,
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  })
 
-  const initializeAxios = useCallback(async () => {
-    setAxiosDefaults()
-
-    const jwtToken = getAuthTokenFromCookie()
-    if (jwtToken) {
-      setAuthToken(jwtToken)
-    } else {
-      setLoading(false)
-    }
-
-    const userInfo = getUserInfoFromCookie()
-    if (userInfo) {
-      setUser(userInfo)
-    }
-  }, [setUser])
-
+  // Use onAuthStateChange for both initial session and subsequent changes
+  // This is more reliable than getSession() which can hang
   useEffect(() => {
-    initializeAxios()
-  }, [initializeAxios])
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session?.user?.email)
 
+      // Handle sign out specifics
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        clearOrgs()
+        setSelectedTagIds([])
+        setAuthInitialized(true)
+        return
+      }
+
+      // Handle user session
+      if (session?.user) {
+        // Get user profile from public.users table
+        const fetchProfile = async () => {
+          try {
+            const { data: userProfile } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+
+            if (userProfile) {
+              setUser({
+                id: userProfile.id,
+                name: userProfile.name,
+                email: userProfile.email,
+                role: userProfile.role
+              })
+            } else {
+              setUser(null)
+            }
+          } catch {
+            setUser(null)
+          } finally {
+            setAuthInitialized(true)
+          }
+        }
+        fetchProfile()
+      } else {
+        setUser(null)
+        setAuthInitialized(true)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [setUser, clearOrgs, setSelectedTagIds])
+
+  // Update org store when organizations are fetched
   useEffect(() => {
-    setOrgs(organizations)
+    if (!authInitialized || fetchingOrgs) return
+
+    if (organizations.length > 0) {
+      setOrgs(organizations)
+      // Only set selectedOrg if not already set or if current selection is invalid
+      const currentOrgs = useOrgStore.getState()
+      const isCurrentOrgValid =
+        currentOrgs.selectedOrg && organizations.some((org) => org.id === currentOrgs.selectedOrg)
+
+      if (!isCurrentOrgValid) {
+        setSelectedOrg(organizations[0].id)
+      }
+    }
     setSelectedTagIds([])
+  }, [organizations, authInitialized, fetchingOrgs, setSelectedOrg, setOrgs, setSelectedTagIds])
 
-    if (organizations.length === 0) {
-      setSelectedOrg(null)
-      return
-    }
-
-    const firstOrgId = organizations[0].id
-    setSelectedOrg(firstOrgId)
-    setLoading(false)
-  }, [organizations, setSelectedOrg, setOrgs, setSelectedTagIds])
-
-  if (loading || fetchingOrgs) return null
+  // Show loader while auth is initializing
+  if (!authInitialized) return <Loader />
 
   return <RouterProvider router={router} />
 }

@@ -20,10 +20,10 @@ import PrevImage from './PrevVideo'
 import Shapes from './Shapes'
 import AnnotationTabs from './AnnotationTabs'
 import LineType from '@models/Line.model'
-import { createShape } from '@renderer/helpers/axiosRequests'
+import { shapesService } from '@/services/supabase'
+import type { ShapeType as SupabaseShapeType } from '@/lib/supabase'
 import { useOrgStore } from '@renderer/store/organization.store'
 import ImgSize from '@models/ImgSize.model'
-import { VideoFileType } from '@models/File.model'
 import { calculateFrame } from './helpers/helpers'
 import VideoControls from './VideoControls/VideoControls'
 import { useUntrackedVideoStore, useVideoStore } from './store/video.store'
@@ -49,7 +49,25 @@ const VideoAnnotate: FC = () => {
   const files = useFilesStore((s) => s.files)
 
   const orgId = useOrgStore((s) => s.selectedOrg)
-  const { mutate: createShapeMutate } = useMutation(createShape)
+  const { mutate: createShapeMutate } = useMutation({
+    mutationFn: ({ shape }: { orgId: string; projectId: string; fileId: string; shape: Record<string, unknown> }) =>
+      shapesService.createShape({
+        id: shape.id as string | undefined,
+        name: shape.name as string,
+        type: shape.type as SupabaseShapeType,
+        orgId: shape.orgId as string,
+        projectId: shape.projectId as string,
+        fileId: shape.fileId as string,
+        classId: shape.classId as string | undefined,
+        notes: shape.notes as string | undefined,
+        strokeWidth: shape.strokeWidth as number | undefined,
+        points: shape.points as { id: string; x: number; y: number }[] | undefined,
+        textField: shape.text as string | undefined,
+        idField: shape.ID as string | undefined,
+        attribute: shape.attribute as string | undefined,
+        atFrame: shape.atFrame as number | undefined
+      })
+  })
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const newPolyIdRef = useRef<string | null>(null)
@@ -117,7 +135,7 @@ const VideoAnnotate: FC = () => {
   })
 
   const calculateCurrentFrame = () => {
-    if (!videoRef.current || !fileObj) return 0
+    if (!videoRef.current || !fileObj || !fileObj.fps) return 0
     const frame = calculateFrame(videoRef.current.currentTime, fileObj.fps)
     return frame
   }
@@ -452,6 +470,7 @@ const VideoAnnotate: FC = () => {
         isOpen={showAddModal}
         onCancel={cancelShape}
         onAdd={completeShape}
+        selectedClass={null}
         initName={
           isDrawingPolygon
             ? `Polygon ${getAllPolygons().length + 1}`

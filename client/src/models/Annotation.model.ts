@@ -4,12 +4,15 @@ import LineType, { VideoLineType } from './Line.model'
 import PolygonType, { VideoPolygonType } from './Polygon.model'
 import RectangleType, { VideoRectangleType } from './Rectangle.model'
 
+export type ShapeType = RectangleType | CircleType | PolygonType | FaceType | LineType
+
 type AnnotationType = {
   rectangles: RectangleType[]
   circles: CircleType[]
   polygons: PolygonType[]
   faces: FaceType[]
   lines: LineType[]
+  [key: string]: ShapeType[]
 }
 
 export default AnnotationType

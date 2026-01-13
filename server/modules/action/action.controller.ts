@@ -28,7 +28,7 @@ export const createActionController = async (
       fileId,
       userId: req.user.id,
     })
-    return res.status(httpStatus.CREATED).json(actionDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(actionDoc)
   } catch (err) {
     next(err)
   }

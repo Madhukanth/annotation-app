@@ -1,36 +1,24 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MdModeEdit } from 'react-icons/md'
 import { FaTrash } from 'react-icons/fa'
 
-import { deleteUser, fetchUsers } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
 import Button from '@renderer/components/common/Button'
 import AddUser from '@renderer/components/Admin/AddUser'
 import CustomModal from '@renderer/components/common/CustomModal'
 import EditUser from '@renderer/components/Admin/EditUser'
 import { UserType } from '@renderer/store/user.store'
 import { errorNotification } from '@renderer/components/common/Notification'
+import { useUsers, useDeleteUser } from '@/hooks/useUsers'
 
 const AdminPage = () => {
-  const queryClient = useQueryClient()
   const [showAddUser, setShowAddUser] = useState(false)
   const [editUser, setEditUser] = useState<UserType | null>(null)
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { data: users } = useQuery({
-    queryKey: ['users', { orgId: orgId! }],
-    queryFn: fetchUsers,
-    enabled: !!orgId,
-    initialData: []
-  })
 
-  const deleteUserMutation = useMutation({ mutationFn: deleteUser })
+  const { data: users = [] } = useUsers()
+  const deleteUserMutation = useDeleteUser()
 
   const handleDelete = (userId: string) => {
     deleteUserMutation.mutate(userId, {
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: ['users', { orgId }] })
-      },
       onError() {
         errorNotification('Unable to delete user')
       }

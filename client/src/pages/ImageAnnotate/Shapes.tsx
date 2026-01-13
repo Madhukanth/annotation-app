@@ -11,6 +11,7 @@ import PointType from '@models/Point.model'
 import ImgSize from '@models/ImgSize.model'
 import { useImageStore, useImageUntrackedStore } from './store/image.store'
 import { useFilesStore } from '@renderer/store/files.store'
+import type AnnotationType from '@renderer/models/Annotation.model'
 
 type ShapesProps = {
   stageRef: RefObject<Konva.Stage>
@@ -62,11 +63,13 @@ const Shapes: FC<ShapesProps> = ({ stageRef, imgSize, selectCommentTab }) => {
 
     const scaleX = imgSize.offsetWidth / imgSize.naturalWidth
     const scaleY = imgSize.offsetHeight / imgSize.naturalHeight
-    const savedPolygons = fileObj?.metadata?.polygons || []
-    const savedRectangles = fileObj?.metadata?.rectangles || []
-    const savedCircles = fileObj?.metadata?.circles || []
-    const savedFaces = fileObj?.metadata?.faces || []
-    const savedLines = fileObj?.metadata?.lines || []
+    // Cast to AnnotationType since ImageAnnotate only handles image files (array-based metadata)
+    const metadata = fileObj?.metadata as AnnotationType | undefined
+    const savedPolygons = metadata?.polygons || []
+    const savedRectangles = metadata?.rectangles || []
+    const savedCircles = metadata?.circles || []
+    const savedFaces = metadata?.faces || []
+    const savedLines = metadata?.lines || []
 
     const scaledPolygons = savedPolygons.map((p) => ({
       ...p,

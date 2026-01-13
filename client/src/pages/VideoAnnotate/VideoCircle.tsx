@@ -1,11 +1,9 @@
 import { FC, Fragment } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
 
 import KonvaCircle from '@renderer/components/KonvaCircle'
 import CircleType from '@models/Circle.model'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useUntrackedVideoStore, useVideoPlayerStore, useVideoStore } from './store/video.store'
 import { useFilesStore } from '@renderer/store/files.store'
@@ -20,11 +18,13 @@ const ImageCircle: FC<ImageCircleProps> = ({
   selectCommentTab,
   calculateCurrentFrame
 }) => {
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+
+  const updateShapeMutation = useMutation({
+    mutationFn: ({ shapeId, data }: { shapeId: string; data: Parameters<typeof shapesService.updateShape>[1] }) =>
+      shapesService.updateShape(shapeId, data)
+  })
 
   const circles = useVideoStore((state) => state.circles)
   const updateCircle = useVideoStore((state) => state.updateCircle)
@@ -52,18 +52,14 @@ const ImageCircle: FC<ImageCircleProps> = ({
     }
     updateCircle(calculateCurrentFrame(), updatedCircle.id, { ...updatedCircle, ...circleData })
 
-    if (!orgId || !projectId || !fileId) return
+    if (!fileId) return
 
     const scaleX = imgSize.offsetWidth / imgSize.naturalWidth
     const scaleY = imgSize.offsetHeight / imgSize.naturalHeight
 
-    updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
+    updateShapeMutation.mutate({
       shapeId: updatedCircle.id,
-      shape: {
-        ...circleData,
+      data: {
         x: circleData.x / scaleX,
         y: circleData.y / scaleY,
         height: circleData.height / scaleY,

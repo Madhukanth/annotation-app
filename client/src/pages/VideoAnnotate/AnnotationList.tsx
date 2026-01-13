@@ -4,7 +4,6 @@ import { FaTrashAlt } from 'react-icons/fa'
 import { cn } from '@renderer/utils/cn'
 import { IoMdTrash } from 'react-icons/io'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
 import PolygonType from '@models/Polygon.model'
@@ -13,8 +12,7 @@ import CircleType from '@models/Circle.model'
 import FaceType from '@models/Face.model'
 import EditModal from '@renderer/components/EditModal'
 import LineType from '@models/Line.model'
-import { deleteShape, updateShape } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
+import { shapesService } from '@/services/supabase'
 import { ShapeType } from '@models/Shape.model'
 import PointType from '@models/Point.model'
 import Tooltip from '@renderer/components/common/Tooltip'
@@ -39,12 +37,17 @@ const AnnotationList: FC<AnnotationListProps> = ({
   const [editFace, setEditFace] = useState<FaceType | null>(null)
   const [editLine, setEditLine] = useState<LineType | null>(null)
 
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { projectid: projectId } = useParams()
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
-  const { mutate: deleteShapeMutate } = useMutation(deleteShape)
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
+
+  const updateShapeMutation = useMutation({
+    mutationFn: ({ shapeId, data }: { shapeId: string; data: Parameters<typeof shapesService.updateShape>[1] }) =>
+      shapesService.updateShape(shapeId, data)
+  })
+
+  const deleteShapeMutation = useMutation({
+    mutationFn: (shapeId: string) => shapesService.deleteShape(shapeId)
+  })
 
   const getAllPolygons = useVideoStore((s) => s.getAllPolygons)
   const updatePolygon = useVideoStore((s) => s.updatePolygon)
@@ -80,7 +83,7 @@ const AnnotationList: FC<AnnotationListProps> = ({
   const selectedLineId = useUntrackedVideoStore((s) => s.selectedLineId)
 
   const calculateCurrentFrame = () => {
-    if (!videoRef.current || !fileObj) return 0
+    if (!videoRef.current || !fileObj || !fileObj.fps) return 0
     const frame = calculateFrame(videoRef.current.currentTime, fileObj.fps)
     return frame
   }
@@ -155,8 +158,19 @@ const AnnotationList: FC<AnnotationListProps> = ({
 
     handleCancel()
 
-    if (!orgId || !projectId || !fileId || !shapeId) return
-    updateShapeMutate({ orgId, projectId, fileId, shapeId, shape: { ...updateData } })
+    if (!fileId || !shapeId) return
+    updateShapeMutation.mutate({
+      shapeId,
+      data: {
+        name: updateData.name,
+        notes: updateData.notes,
+        classId: updateData.classId,
+        attribute: updateData.attribute,
+        textField: updateData.text,
+        idField: updateData.ID,
+        stroke: updateData.stroke
+      }
+    })
   }
 
   const handleSelectPoly = (polyId: string) => () => {
@@ -391,8 +405,8 @@ const AnnotationList: FC<AnnotationListProps> = ({
       deleteLine(currentFrame, selectedLineId)
     }
 
-    if (orgId && projectId && fileId && shapeId) {
-      deleteShapeMutate({ orgId, projectId, fileId, shapeId })
+    if (fileId && shapeId) {
+      deleteShapeMutation.mutate(shapeId)
     }
   }
   useHotkeys(['delete', 'backspace'], handleDeleteShortcut, [handleDeleteShortcut])
@@ -420,8 +434,8 @@ const AnnotationList: FC<AnnotationListProps> = ({
       deleteLine(currentFrame, shapeId)
     }
 
-    if (orgId && projectId && fileId && shapeId) {
-      deleteShapeMutate({ orgId, projectId, fileId, shapeId })
+    if (fileId && shapeId) {
+      deleteShapeMutation.mutate(shapeId)
     }
   }
 
@@ -457,13 +471,10 @@ const AnnotationList: FC<AnnotationListProps> = ({
       setSelectedLinePoint(null)
     }
 
-    if (!orgId || !projectId || !fileId || !uShape) return
-    updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
+    if (!fileId || !uShape) return
+    updateShapeMutation.mutate({
       shapeId: uShape.id,
-      shape: { points: getPointsScaled(uShape.points) }
+      data: { points: getPointsScaled(uShape.points) }
     })
   }
 

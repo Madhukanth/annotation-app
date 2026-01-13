@@ -5,25 +5,25 @@ import { BsFillCheckCircleFill } from 'react-icons/bs'
 import Button from '@renderer/components/common/Button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { useMutation } from '@tanstack/react-query'
-import { updateFileCompleteStatus } from '@renderer/helpers/axiosRequests'
+import { filesService } from '@/services/supabase'
 import { useFilesStore } from '@renderer/store/files.store'
-import { useOrgStore } from '@renderer/store/organization.store'
 import { errorNotification } from '@renderer/components/common/Notification'
 
 const AnnotateHeader: FC = () => {
   const { projectid: projectId } = useParams()
-  const selectedOrg = useOrgStore((s) => s.selectedOrg)
 
   const getProjectById = useProjectStore((s) => s.getProjectById)
-  const updateFile = useFilesStore((s) => s.updateFile)
+  const updateFileStore = useFilesStore((s) => s.updateFile)
 
   const project = getProjectById(projectId || '')
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
 
-  const { mutate: completeFileMutate, isLoading } = useMutation(updateFileCompleteStatus, {
-    onSuccess(_data, { complete }) {
-      updateFile(fileId!, { complete })
+  const updateFileMutation = useMutation({
+    mutationFn: ({ fileId, data }: { fileId: string; data: { complete?: boolean; skipped?: boolean } }) =>
+      filesService.updateFile(fileId, data),
+    onSuccess(_data, { data }) {
+      updateFileStore(fileId!, { complete: data.complete })
     },
     onError() {
       errorNotification('Failed to update')
@@ -31,11 +31,10 @@ const AnnotateHeader: FC = () => {
   })
 
   const handleComplete = (status: boolean) => {
-    completeFileMutate({
-      orgId: selectedOrg!,
-      projectId: projectId!,
-      fileId: fileId!,
-      complete: status
+    if (!fileId) return
+    updateFileMutation.mutate({
+      fileId: fileId,
+      data: { complete: status }
     })
   }
 
@@ -55,13 +54,13 @@ const AnnotateHeader: FC = () => {
       </div>
 
       {fileObj && !fileObj.complete && (
-        <Button onClick={() => handleComplete(true)} disabled={isLoading} className="h-full">
+        <Button onClick={() => handleComplete(true)} disabled={updateFileMutation.isLoading} className="h-full">
           Complete
         </Button>
       )}
 
       {fileObj && fileObj.complete && (
-        <Button onClick={() => handleComplete(false)} disabled={isLoading} className="h-full">
+        <Button onClick={() => handleComplete(false)} disabled={updateFileMutation.isLoading} className="h-full">
           Mark InComplete
         </Button>
       )}

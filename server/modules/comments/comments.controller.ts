@@ -25,8 +25,7 @@ export const getCommentsController = async (
       fileId,
       shapeId
     )
-    const commentListJson = commentList.map((c) => c.toJSON())
-    return res.status(httpStatus.OK).json(commentListJson)
+    return res.status(httpStatus.OK).json(commentList)
   } catch (err) {
     next(err)
   }
@@ -50,14 +49,14 @@ export const createCommentController = async (
     const { content, shapeId } = req.body
 
     const commentDoc = await CommentService.dbCreateComment({
-      orgId: getObjectId(orgId),
-      projectId: getObjectId(projectId),
-      fileId: getObjectId(fileId),
-      userId: getObjectId(req.user.id),
+      orgId,
+      projectId,
+      fileId,
+      userId: req.user.id,
       content,
       shapeId,
     })
-    return res.status(httpStatus.CREATED).json(commentDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(commentDoc)
   } catch (err) {
     next(err)
   }
@@ -82,7 +81,7 @@ export const updateCommentController = async (
       throw new Error('Comment is not found')
     }
 
-    return res.status(httpStatus.OK).json(commentDoc.toJSON())
+    return res.status(httpStatus.OK).json(commentDoc)
   } catch (err) {
     next(err)
   }
@@ -100,7 +99,7 @@ export const deleteCommentController = async (
       throw new Error('Comment is not found')
     }
 
-    return res.status(httpStatus.OK).json(commentDoc.toJSON())
+    return res.status(httpStatus.OK).json(commentDoc)
   } catch (err) {
     next(err)
   }

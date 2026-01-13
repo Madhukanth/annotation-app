@@ -1,14 +1,14 @@
 import { FC, useRef } from 'react'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 
-import { VideoFileType } from '@models/File.model'
+import FileType from '@models/File.model'
 import OutlineButton from '@renderer/components/common/OutlineButton'
 import { getStoredUrl } from '@renderer/utils/vars'
 import VideoControls from '@renderer/pages/VideoAnnotate/VideoControls/VideoControls'
 import { useOrgStore } from '@renderer/store/organization.store'
 
 type VideoAnnotateCardProps = {
-  video: VideoFileType
+  video: FileType
   isDeleting: boolean
   onDelete: () => void
 }

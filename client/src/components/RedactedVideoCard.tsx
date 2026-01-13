@@ -66,10 +66,10 @@ const RedactedVideoCard: FC<RedactedVideoCardProps> = ({ video, onDelete }) => {
           >
             <Layer>
               <VideoShapesRenderer
-                polygons={video.annotations.polygons || []}
-                rectangles={video.annotations.rectangles || []}
-                circles={video.annotations.circles || []}
-                faces={video.annotations.faces || []}
+                polygons={video.annotations.polygons || {}}
+                rectangles={video.annotations.rectangles || {}}
+                circles={video.annotations.circles || {}}
+                faces={video.annotations.faces || {}}
                 fps={video.metadata?.fps || 0}
                 stageScale={stageScale}
                 videoRef={videoRef}

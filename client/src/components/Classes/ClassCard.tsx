@@ -3,9 +3,8 @@ import { FC, useState } from 'react'
 import { BsFileTextFill } from 'react-icons/bs'
 import { FaAddressCard } from 'react-icons/fa'
 import OutlineButton from '../common/OutlineButton'
-import { useMutation } from '@tanstack/react-query'
-import { deleteAnnotationClass, updateProjectDefaultClass } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
+import { useDeleteAnnotationClass } from '@/hooks/useAnnotationClasses'
+import { useUpdateProject } from '@/hooks/useProjects'
 import { errorNotification, successNotification } from '../common/Notification'
 import { useClassesStore } from '@renderer/store/classes.store'
 import { useParams } from 'react-router-dom'
@@ -20,20 +19,19 @@ type ClassCardProps = {
   onEdit: (annotationClass: AnnotationClass) => void
 }
 const ClassCard: FC<ClassCardProps> = ({ annotationClass, isDefaultClass, onEdit }) => {
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { mutate: deleteAnnotationClassMutate, isLoading } = useMutation(deleteAnnotationClass)
+  const { mutate: deleteAnnotationClassMutate, isLoading } = useDeleteAnnotationClass()
   const deleteClass = useClassesStore((s) => s.deleteClass)
-  const updateProject = useProjectStore((s) => s.updateProject)
+  const updateProjectStore = useProjectStore((s) => s.updateProject)
   const { projectid: projectId } = useParams()
   const [showDelete, setShowDelete] = useState(false)
 
-  const updateProjectDefaultClassMutation = useMutation({ mutationFn: updateProjectDefaultClass })
+  const { mutate: updateProjectMutation } = useUpdateProject()
 
   const handleDelete = (classId: string) => {
-    if (!orgId || !projectId) return
+    if (!projectId) return
 
     deleteAnnotationClassMutate(
-      { orgId, projectId, classId },
+      { classId, projectId },
       {
         onSuccess() {
           deleteClass(classId)
@@ -47,13 +45,13 @@ const ClassCard: FC<ClassCardProps> = ({ annotationClass, isDefaultClass, onEdit
   }
 
   const handleMarkAsDefault = (classId: string) => {
-    if (!orgId || !projectId || isDefaultClass) return
+    if (!projectId || isDefaultClass) return
 
-    updateProjectDefaultClassMutation.mutate(
-      { orgId, projectId, classId },
+    updateProjectMutation(
+      { projectId, input: { defaultClassId: classId } },
       {
         onSuccess() {
-          updateProject(projectId, { defaultClassId: classId })
+          updateProjectStore(projectId, { defaultClassId: classId })
           successNotification(`Marked ${annotationClass.name} as default class`)
         },
         onError() {

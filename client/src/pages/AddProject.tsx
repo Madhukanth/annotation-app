@@ -1,6 +1,5 @@
 import { FC, Fragment, useCallback, useRef, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
-import { useMutation } from '@tanstack/react-query'
 import { HiOutlineUpload } from 'react-icons/hi'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import { useFormik } from 'formik'
@@ -8,12 +7,6 @@ import { SingleValue } from 'react-select'
 import { useNavigate } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 
-import {
-  completeFileUpload,
-  createFileUploadUrl,
-  createProjectMutator,
-  uploadFileMutator
-} from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { SIDEBAR_WIDTH } from '@renderer/constants'
 import {
@@ -24,9 +17,8 @@ import {
 import Button from '@renderer/components/common/Button'
 import CustomSelect from '@renderer/components/common/Select'
 import { SelectOption } from '@models/UI.model'
-import { Storage } from '@models/Project.model'
-// import { VideoMetadataModel } from '@models/video_metadata.model'
-import { FileTypesType } from '@models/File.model'
+import { StorageType, TaskType, FileType } from '@/lib/supabase'
+import { projectsService, filesService, storageService } from '@/services/supabase'
 
 type AddProjectFormik = {
   name: string
@@ -50,11 +42,6 @@ const AddProject: FC = () => {
   const projectIdRef = useRef<string | null>(null)
 
   const navigate = useNavigate()
-
-  const { mutateAsync: uploadFileMutate } = useMutation(uploadFileMutator)
-  const { mutateAsync: createProjectMutate } = useMutation(createProjectMutator)
-  const { mutateAsync: createFileUploadUrlMutate } = useMutation(createFileUploadUrl)
-  const { mutateAsync: completeFileUploadMutate } = useMutation(completeFileUpload)
 
   const formik = useFormik<AddProjectFormik>({
     initialValues: {
@@ -103,89 +90,93 @@ const AddProject: FC = () => {
     setUploadProgress(progressObj)
     setUploading(true)
 
-    if (!projectIdRef.current) {
-      if (!formik.values.storage?.value || !formik.values.taskType?.value) {
-        return
-      }
-
-      const data = await createProjectMutate({
-        orgId: orgId,
-        projectName: formik.values.name,
-        storage: formik.values.storage?.value,
-        taskType: formik.values.taskType?.value,
-        awsAccessKeyId: formik.values.awsAccessKeyId,
-        awsApiVersion: formik.values.awsApiVersion,
-        awsBucketName: formik.values.awsBucketName,
-        awsRegion: formik.values.awsRegion,
-        awsSecretAccessKey: formik.values.awsSecretAccessKey,
-        azurePassKey: formik.values.azurePassKey,
-        azureStorageAccount: formik.values.azureStorageAccount,
-        azureContainerName: formik.values.azureContainerName
-      }).catch(async () => {
-        setUploading(false)
-        errorNotification('Failed to create project')
-      })
-      projectIdRef.current = data.id
-    }
-
-    const failedFiles: File[] = []
-
-    for (const file of formik.values.files) {
-      try {
-        const createUrlData = await createFileUploadUrlMutate({
-          orgId: orgId,
-          projectId: projectIdRef.current!,
-          originalName: file.name,
-          type: file.type
-        })
-
-        await uploadFileMutate({
-          storage: (formik.values.storage?.value || 'default') as Storage,
-          url: createUrlData.uploadUrl,
-          orgId: orgId,
-          projectId: projectIdRef.current!,
-          uploadFile: file,
-          onProgress: (percent) => {
-            setUploadProgress((prgs) => ({ ...prgs, [file.name]: percent }))
-          }
-        })
-
-        const info = { totalFrames: 1, fps: 1, duration: 0 }
-        const fileType: FileTypesType = file.type.startsWith('video') ? 'video' : 'image'
-        if (fileType === 'video') {
-          // const { framescount, fps, duration } =
-          //   await window.api.fileApi.getVideoMetadata<VideoMetadataModel>(file.filePath)
-          info.fps = 24
-          info.totalFrames = 4800
-          info.duration = 200
+    try {
+      // Step 1: Create project directly in Supabase (no server call)
+      if (!projectIdRef.current) {
+        if (!formik.values.storage?.value || !formik.values.taskType?.value) {
+          setUploading(false)
+          return
         }
 
-        await completeFileUploadMutate({
+        const project = await projectsService.createProject({
+          name: formik.values.name,
           orgId: orgId,
-          projectId: projectIdRef.current!,
-          fileId: createUrlData.fileId,
-          relativePath: createUrlData.relativePath,
-          name: createUrlData.name,
-          originalName: createUrlData.updatedOriginalName,
-          totalFrames: info.totalFrames,
-          fps: info.fps,
-          duration: info.duration,
-          type: fileType
+          storage: formik.values.storage.value as StorageType,
+          taskType: formik.values.taskType.value as TaskType,
+          awsAccessKeyId: formik.values.awsAccessKeyId || undefined,
+          awsApiVersion: formik.values.awsApiVersion || undefined,
+          awsBucketName: formik.values.awsBucketName || undefined,
+          awsRegion: formik.values.awsRegion || undefined,
+          awsSecretAccessKey: formik.values.awsSecretAccessKey || undefined,
+          azurePassKey: formik.values.azurePassKey || undefined,
+          azureStorageAccount: formik.values.azureStorageAccount || undefined,
+          azureContainerName: formik.values.azureContainerName || undefined
         })
-      } catch (e) {
-        failedFiles.push(file)
+        projectIdRef.current = project.id
       }
-    }
 
-    setUploading(false)
-    if (failedFiles.length > 0) {
-      formik.setFieldValue('files', failedFiles)
-      errorNotification(`Failed to upload ${failedFiles.length} file(s)`)
-    } else {
-      successNotification('Successfully uploaded')
-      navigate(`/orgs/${orgId}/projects`)
+      const failedFiles: File[] = []
+
+      // Step 2: Upload files directly to Supabase Storage and create file records
+      for (const file of formik.values.files) {
+        try {
+          // Upload file directly to Supabase Storage
+          const uploadResult = await storageService.uploadFileToStorage({
+            orgId: orgId,
+            projectId: projectIdRef.current!,
+            file: file,
+            onProgress: (percent) => {
+              setUploadProgress((prgs) => ({ ...prgs, [file.name]: percent }))
+            }
+          })
+
+          // Determine file type
+          const fileType: FileType = file.type.startsWith('video') ? 'video' : 'image'
+
+          // Get video metadata if needed
+          const info = { totalFrames: 1, fps: 1, duration: 0 }
+          if (fileType === 'video') {
+            // Default video values - in production you might want to extract these
+            info.fps = 24
+            info.totalFrames = 4800
+            info.duration = 200
+          }
+
+          // Create file record directly in Supabase database
+          await filesService.createFile({
+            id: uploadResult.fileId,
+            originalName: file.name,
+            name: uploadResult.path.split('/').pop() || file.name,
+            url: uploadResult.url,
+            relativePath: uploadResult.path,
+            storedIn: 'default',
+            orgId: orgId,
+            projectId: projectIdRef.current!,
+            type: fileType,
+            totalFrames: info.totalFrames,
+            fps: info.fps,
+            duration: info.duration
+          })
+        } catch (e) {
+          console.error(`Failed to upload ${file.name}:`, e)
+          failedFiles.push(file)
+        }
+      }
+
+      setUploading(false)
+      if (failedFiles.length > 0) {
+        formik.setFieldValue('files', failedFiles)
+        errorNotification(`Failed to upload ${failedFiles.length} file(s)`)
+      } else {
+        successNotification('Successfully created project')
+        navigate(`/orgs/${orgId}/projects`)
+      }
+    } catch (error) {
+      console.error('Error creating project:', error)
+      setUploading(false)
+      errorNotification('Failed to create project')
     }
-  }, [orgId, formik.values])
+  }, [orgId, formik.values, navigate])
 
   const deleteFile = (fileName: string) => {
     const dFiles = formik.values.files.filter((f) => f.name !== fileName)

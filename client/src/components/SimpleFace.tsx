@@ -4,10 +4,9 @@ import { Line as LineType } from 'konva/lib/shapes/Line'
 import { Group as GroupType } from 'konva/lib/Group'
 
 import FaceType from '@models/Face.model'
-import VideoFaceType from '@models/VideoFace.model'
 
 type SimpleFaceProps = {
-  shapeProps: FaceType | VideoFaceType
+  shapeProps: FaceType
   strokeWidth: number
   stroke: string
 }

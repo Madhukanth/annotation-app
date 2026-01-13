@@ -3,9 +3,10 @@ import { FC, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 
 import Pagination from '@renderer/components/common/Pagination'
-import { fetchProjectFiles } from '@renderer/helpers/axiosRequests'
+import { filesService } from '@/services/supabase'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useOrgStore } from '@renderer/store/organization.store'
+import FileType from '@models/File.model'
 
 const ImagePagination: FC = () => {
   const selectedOrg = useOrgStore((s) => s.selectedOrg)
@@ -18,11 +19,12 @@ const ImagePagination: FC = () => {
 
   const limit = 20
   const skip = currentPage * limit
-  const { data } = useQuery(
-    ['project-files', { orgId: selectedOrg!, projectId: projectId!, skip, limit, complete: false }],
-    fetchProjectFiles,
-    { initialData: { files: [], count: 0 }, enabled: !!selectedOrg && !!projectId }
-  )
+  const { data } = useQuery({
+    queryKey: ['project-files', { projectId: projectId!, skip, limit, complete: false }],
+    queryFn: () => filesService.getFilesWithCount(projectId!, skip, limit, { complete: false }),
+    initialData: { files: [], count: 0 },
+    enabled: !!selectedOrg && !!projectId
+  })
   const totalPages = Math.ceil(data.count / limit)
 
   useEffect(() => {
@@ -30,7 +32,8 @@ const ImagePagination: FC = () => {
   }, [data.count, setCount])
 
   useEffect(() => {
-    setFiles(data.files)
+    // Cast FileWithTags[] to FileType[] - the Supabase model has compatible structure
+    setFiles(data.files as unknown as FileType[])
   }, [data.files, setFiles])
 
   return (

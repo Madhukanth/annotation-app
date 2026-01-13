@@ -1,7 +1,6 @@
 import { FC, useState } from 'react'
 
 import FileType from '@models/File.model'
-import { getStoredUrl } from '@renderer/utils/vars'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 import CustomModal from '@renderer/components/common/CustomModal'
 import ConfirmDelete from '@renderer/components/common/ConfirmDelete'
@@ -33,10 +32,7 @@ const AnnotateCard: FC<AnnotateCardProps> = ({ image, onDelete, isDeleting }) =>
       )}
       <div className="rounded-lg border border-gray-300 h-fit">
         <div className="flex justify-center items-center h-44 bg-black rounded-t-lg">
-          <img
-            className="max-h-full max-w-full object-cover"
-            src={getStoredUrl(image.url, image.storedIn)}
-          />
+          <img className="max-h-full max-w-full object-cover" src={image.url} />
         </div>
 
         <div className="py-4 px-4">

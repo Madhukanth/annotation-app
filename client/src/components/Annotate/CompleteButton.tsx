@@ -1,17 +1,16 @@
-import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { useHotkeys } from 'react-hotkeys-hook'
 
 import Button from '../common/Button'
-import { updateFileCompleteStatus } from '@renderer/helpers/axiosRequests'
+import { useUpdateFile } from '@/hooks/useFiles'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useImageStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 import { useClassifyStore } from '@renderer/store/classify.store'
 
 const CompleteButton = () => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
-  const updateFile = useFilesStore((s) => s.updateFile)
+  const updateFileStore = useFilesStore((s) => s.updateFile)
 
   const fileId = fileObj?.id
 
@@ -24,23 +23,21 @@ const CompleteButton = () => {
   const faces = useImageStore((state) => state.faces)
   const lines = useImageStore((state) => state.lines)
 
-  const completeMutation = useMutation({ mutationFn: updateFileCompleteStatus })
+  const { mutate: completeMutation } = useUpdateFile()
 
   const anyShapesExist =
     polygons.length || circles.length || rectangles.length || faces.length || lines.length
 
   const handleComplete = () => {
-    if (!orgId || !projectId || !fileId) return
+    if (!projectId || !fileId) return
 
     if (!isGrid && !anyShapesExist && selectedTags.length === 0) return
 
     if (!isGrid) {
-      updateFile(fileId, { complete: true, skipped: false })
-      completeMutation.mutate({
-        orgId: orgId,
-        projectId: projectId,
+      updateFileStore(fileId, { complete: true, skipped: false })
+      completeMutation({
         fileId: fileId,
-        complete: true
+        input: { complete: true }
       })
     }
     const nextImgBtn = document.getElementById('next-img-btn')

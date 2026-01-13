@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import KonvaRectangle from '@renderer/components/KonvaRectangle'
 import RectangleType from '@models/Rectangle.model'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
 import { ShapeType } from '@models/Shape.model'
@@ -18,7 +18,10 @@ const ImageRectangles: FC<ImageRectanglesProps> = ({ imgSize, selectCommentTab }
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+  const { mutate: updateShapeMutate } = useMutation({
+    mutationFn: ({ shapeId, shape }: { shapeId: string; shape: UpdateShapeInput }) =>
+      shapesService.updateShape(shapeId, shape)
+  })
 
   const drawingShape = useImageUntrackedStore((state) => state.drawingShape)
   const selectedShape = useImageUntrackedStore((state) => state.selectedShape)
@@ -36,17 +39,13 @@ const ImageRectangles: FC<ImageRectanglesProps> = ({ imgSize, selectCommentTab }
     const scaleX = imgSize.offsetWidth / imgSize.naturalWidth
     const scaleY = imgSize.offsetHeight / imgSize.naturalHeight
 
-    const uRect = {
-      ...updatedRect,
+    const uRect: UpdateShapeInput = {
       x: updatedRect.x / scaleX,
       y: updatedRect.y / scaleY,
       height: updatedRect.height / scaleY,
       width: updatedRect.width / scaleX
     }
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: updatedRect.id,
       shape: uRect
     })

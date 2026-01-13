@@ -1,15 +1,14 @@
-import { FC, RefObject, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { FC, RefObject, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { Stage as StageType } from 'konva/lib/Stage'
 
-import { useOrgStore } from '@renderer/store/organization.store'
-import { fetchAnnotationClasses } from '@renderer/helpers/axiosRequests'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 import { cn } from '@renderer/utils/cn'
 import { SIDEBAR_WIDTH } from '@renderer/constants'
 import AnnotateToolbar from '@renderer/pages/ImageAnnotate/AnnotationToolbar'
 import { useProjectStore } from '@renderer/store/project.store'
+import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
+import AnnotationClass from '@models/AnnotationClass.model'
 
 type AnnotateSidebarProps = {
   imgRef: RefObject<HTMLImageElement>
@@ -25,15 +24,29 @@ const AnnotateSidebar: FC<AnnotateSidebarProps> = ({
   finalizePolygon,
   drawPolygon
 }) => {
-  const orgId = useOrgStore((state) => state.selectedOrg)
   const { projectid: projectId } = useParams()
 
   const getProjectById = useProjectStore((s) => s.getProjectById)
   const project = getProjectById(projectId || '')
-  const { data: annotationClasses } = useQuery(
-    ['classes', { orgId: orgId!, projectId: projectId! }],
-    fetchAnnotationClasses,
-    { enabled: !!orgId, initialData: [] }
+  const { data: annotationClassesData = [] } = useAnnotationClasses(projectId || '')
+
+  // Transform to legacy format
+  const annotationClasses: AnnotationClass[] = useMemo(
+    () =>
+      annotationClassesData.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        attributes: c.attributes || [],
+        text: c.has_text || false,
+        ID: c.has_id || false,
+        orgId: c.org_id,
+        projectId: c.project_id,
+        notes: c.notes || '',
+        createdAt: c.created_at || '',
+        modifiedAt: c.updated_at || ''
+      })),
+    [annotationClassesData]
   )
 
   const selectedClass = useImageUntrackedStore((s) => s.selectedClass)

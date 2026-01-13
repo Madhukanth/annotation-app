@@ -12,14 +12,13 @@ import SimpleRectangle from '@renderer/components/SimpleRectangle'
 import SimpleCircle from '@renderer/components/SimpleCircle'
 import SimpleFace from '@renderer/components/SimpleFace'
 import FileType from '@models/File.model'
-import { getStoredUrl } from '@renderer/utils/vars'
 import OutlineButton from '@renderer/components/common/OutlineButton'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 import LineType from '@models/Line.model'
 import SimpleLine from '@renderer/components/SimpleLine'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { BiX } from 'react-icons/bi'
-import { FileStatus } from '@renderer/pages/ProjectView'
+import { FileStatus } from './ProjectReview'
 import { useSearchParams } from 'react-router-dom'
 
 type ImgSize = { height: number; width: number }
@@ -118,7 +117,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
         <div className="relative h-full w-full flex justify-center items-center">
           <img
             className="max-h-full max-w-full"
-            src={getStoredUrl(image.url, image.storedIn)}
+            src={image.url}
             ref={imgRef}
             alt={image.originalName}
             onLoad={handleImgLoad}

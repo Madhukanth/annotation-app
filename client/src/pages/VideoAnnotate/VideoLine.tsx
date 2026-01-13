@@ -1,12 +1,10 @@
 import { FC, Fragment, RefObject } from 'react'
 import Konva from 'konva'
-import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
 import KonvaLine from '@renderer/components/KonvaLine'
 import LineType from '@models/Line.model'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService } from '@/services/supabase'
 import PointType from '@models/Point.model'
 import ImgSize from '@models/ImgSize.model'
 import { useUntrackedVideoStore, useVideoPlayerStore, useVideoStore } from './store/video.store'
@@ -24,12 +22,13 @@ const VideoLines: FC<VideoLinesProps> = ({
   selectCommentTab,
   calculateCurrentFrame
 }) => {
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { projectid: projectId } = useParams()
-
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+
+  const updateShapeMutation = useMutation({
+    mutationFn: ({ shapeId, data }: { shapeId: string; data: Parameters<typeof shapesService.updateShape>[1] }) =>
+      shapesService.updateShape(shapeId, data)
+  })
 
   const currentTimeAndFrame = useVideoPlayerStore((state) => state.currentTimeAndFrameMap)
 
@@ -61,13 +60,10 @@ const VideoLines: FC<VideoLinesProps> = ({
   const handleLineDragOrChange = (updatedLine: LineType) => {
     updateLine(calculateCurrentFrame(), updatedLine.id, { ...updatedLine })
 
-    if (!orgId || !projectId || !fileId) return
-    updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
+    if (!fileId) return
+    updateShapeMutation.mutate({
       shapeId: updatedLine.id,
-      shape: { ...updatedLine, points: getPointsScaled(updatedLine.points) }
+      data: { points: getPointsScaled(updatedLine.points) }
     })
   }
 

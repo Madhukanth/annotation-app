@@ -5,8 +5,13 @@ dotenv.config()
 const envs = {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
+  // Legacy MongoDB (kept for migration script)
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET,
+  // Supabase configuration
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   LOGS: process.env.NODE_ENV === 'production' ? 'combined' : 'dev',
   FLAGS: '%5B%5D',
   DATA_ROOT: process.env.DATA_ROOT,
@@ -19,6 +24,7 @@ const envs = {
   AZ_PASS_KEY: process.env.AZ_PASS_KEY!,
 }
 
+// Legacy MongoDB model names (kept for migration)
 export const DB_MODEL_NAMES = {
   User: 'User',
   Project: 'Project',
@@ -30,6 +36,25 @@ export const DB_MODEL_NAMES = {
   CommentFile: 'CommentFile',
   AnnotationClass: 'AnnotationClass',
   Shape: 'Shape',
+}
+
+// Supabase PostgreSQL table names
+export const DB_TABLES = {
+  users: 'users',
+  organizations: 'organizations',
+  projects: 'projects',
+  projectDataManagers: 'project_data_managers',
+  projectReviewers: 'project_reviewers',
+  projectAnnotators: 'project_annotators',
+  annotationClasses: 'annotation_classes',
+  files: 'files',
+  fileTags: 'file_tags',
+  shapes: 'shapes',
+  comments: 'comments',
+  commentFiles: 'comment_files',
+  actions: 'actions',
+  invitations: 'invitations',
+  migrationIdMapping: 'migration_id_mapping',
 }
 
 export const CONSTANTS = {

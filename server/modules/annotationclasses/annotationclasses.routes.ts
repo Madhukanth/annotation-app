@@ -23,7 +23,7 @@ export default () => {
   api.get(
     '/',
     authorize,
-    AnnotationClassController.getAnnotationClassesController
+    AnnotationClassController.getAnnotationClassesController as any
   )
 
   // Update annotation class by classid

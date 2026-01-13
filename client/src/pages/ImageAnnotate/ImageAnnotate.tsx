@@ -23,7 +23,8 @@ import Shapes from './Shapes'
 import AnnotationTabs from './AnnotationTabs'
 import LineType from '@models/Line.model'
 import { useMutation } from '@tanstack/react-query'
-import { createShape, updateFileHeightWidth } from '@renderer/helpers/axiosRequests'
+import { shapesService, filesService } from '@/services/supabase'
+import type { ShapeType as SupabaseShapeType } from '@/lib/supabase'
 import { useOrgStore } from '@renderer/store/organization.store'
 import ImgSize from '@models/ImgSize.model'
 import { ShapeType } from '@models/Shape.model'
@@ -60,10 +61,39 @@ const ImageAnnotate: FC = () => {
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
   const setSelectedFile = useFilesStore((s) => s.setSelectedFile)
-  const [imgSrcUrl] = useImage(getStoredUrl(fileObj?.url || '', fileObj?.storedIn))
+  const [imgSrcUrl] = useImage(fileObj?.url || '')
 
   const orgId = useOrgStore((s) => s.selectedOrg)
-  const { mutate: createShapeMutate } = useMutation(createShape)
+  const { mutate: createShapeMutate } = useMutation({
+    mutationFn: ({
+      shape
+    }: {
+      orgId: string
+      projectId: string
+      fileId: string
+      shape: ShapeType
+    }) =>
+      shapesService.createShape({
+        id: shape.id,
+        name: shape.name,
+        type: shape.type as SupabaseShapeType,
+        orgId: shape.orgId,
+        projectId: shape.projectId,
+        fileId: shape.fileId,
+        classId: shape.classId,
+        notes: shape.notes,
+        strokeWidth: shape.strokeWidth,
+        x: shape.x,
+        y: shape.y,
+        height: shape.height,
+        width: shape.width,
+        points: shape.points,
+        textField: shape.text,
+        idField: shape.ID,
+        attribute: shape.attribute,
+        atFrame: shape.atFrame
+      })
+  })
 
   const imgRef = useRef<HTMLImageElement>(null)
   const newPolyIdRef = useRef<string | null>(null)
@@ -98,7 +128,19 @@ const ImageAnnotate: FC = () => {
   const currFileIdx = files.findIndex((f) => f.id === fileId)
   const [thumbFiles, setThumbFiles] = useState<FileType[]>([])
 
-  const fileUpdateMutation = useMutation({ mutationFn: updateFileHeightWidth })
+  const fileUpdateMutation = useMutation({
+    mutationFn: ({
+      fileId,
+      width,
+      height
+    }: {
+      orgId: string
+      projectId: string
+      fileId: string
+      width: number
+      height: number
+    }) => filesService.updateFile(fileId, { width, height })
+  })
 
   const handleWindowResize = useCallback(async () => {
     if (!imgRef.current || !stageRef.current || !stageImgRef.current || !drawboardRef.current) {
@@ -529,7 +571,7 @@ const ImageAnnotate: FC = () => {
                   }}
                   className="max-h-full max-w-full"
                   ref={imgRef}
-                  src={getStoredUrl(fileObj.url, fileObj.storedIn)}
+                  src={fileObj.url}
                   alt={fileObj.originalName}
                   onLoad={handleImgLoad}
                 />
@@ -638,7 +680,7 @@ const ImageAnnotate: FC = () => {
                     {file.type === 'image' ? (
                       <img
                         className="w-20 max-h-12 h-full object-cover rounded-sm"
-                        src={getStoredUrl(file.url, fileObj.storedIn)}
+                        src={file.url}
                         alt={file.originalName}
                       />
                     ) : (

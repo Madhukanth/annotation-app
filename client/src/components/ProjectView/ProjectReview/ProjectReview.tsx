@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReviewCard from './ReviewCard'
 import { useFilesStore } from '@renderer/store/files.store'
-import { fetchProjectFiles } from '@renderer/helpers/axiosRequests'
+import * as filesService from '@/services/supabase/files.service'
 import Pagination from '@renderer/components/common/Pagination'
 import CardSkeleton from '@renderer/components/common/CardSkeleton'
 import { SelectOption } from '@models/UI.model'
@@ -17,6 +17,8 @@ import SearchAndSelectTags from '@renderer/components/common/SearchAndSelectTags
 import SearchAndSelectUsers from '@renderer/components/common/SearchUsers'
 import DatePicker from 'react-date-picker'
 import { useProjectStore } from '@renderer/store/project.store'
+import { transformFileToLegacy } from '@/utils/transformers'
+import type AnnotationType from '@renderer/models/Annotation.model'
 
 type ValuePiece = Date | null
 
@@ -30,7 +32,7 @@ const fileStatusOptions = [
 ]
 
 const ProjectReview: FC = () => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
   const [selectedAnnotator, setSelectedAnnotator] = useState<SelectOption | null>(null)
   const [filterDate, setFilterDate] = useState<Value>()
   const [fileStatus, setFileStatus] = useState<FileStatus>('complete')
@@ -46,26 +48,45 @@ const ProjectReview: FC = () => {
 
   const limit = 20
   const skip = currentPage * limit
-  const { data, isFetching } = useQuery(
-    [
+
+  const { data, isFetching } = useQuery({
+    queryKey: [
       'project-files',
       {
-        orgId: orgId!,
         projectId: projectId!,
         skip,
         limit,
-        annotator: selectedAnnotator?.value,
+        annotatorId: selectedAnnotator?.value,
         hasShapes: fileStatus === 'annotated' ? true : undefined,
         complete: fileStatus === 'complete' ? true : undefined,
         skipped: fileStatus === 'skipped' ? true : undefined,
-        ...(filterDate && fileStatus === 'complete' && { completedAfter: filterDate as Date }),
-        ...(filterDate && fileStatus === 'skipped' && { skippedAfter: filterDate as Date }),
-        ...(filterTags && { tags: filterTags.map((tag) => tag.id) })
+        completedAfter:
+          filterDate && fileStatus === 'complete' ? (filterDate as Date).toISOString() : undefined,
+        skippedAfter:
+          filterDate && fileStatus === 'skipped' ? (filterDate as Date).toISOString() : undefined,
+        tags: filterTags.length > 0 ? filterTags.map((tag) => tag.id) : undefined
       }
     ],
-    fetchProjectFiles,
-    { initialData: { files: [], count: 0 }, enabled: !!orgId && !!projectId }
-  )
+    queryFn: async () => {
+      const result = await filesService.getFilesWithCount(projectId!, skip, limit, {
+        annotatorId: selectedAnnotator?.value,
+        hasShapes: fileStatus === 'annotated' ? true : undefined,
+        complete: fileStatus === 'complete' ? true : undefined,
+        skipped: fileStatus === 'skipped' ? true : undefined,
+        completedAfter:
+          filterDate && fileStatus === 'complete' ? (filterDate as Date).toISOString() : undefined,
+        skippedAfter:
+          filterDate && fileStatus === 'skipped' ? (filterDate as Date).toISOString() : undefined,
+        tags: filterTags.length > 0 ? filterTags.map((tag) => tag.id) : undefined
+      })
+      return {
+        files: result.files.map(transformFileToLegacy),
+        count: result.count
+      }
+    },
+    initialData: { files: [], count: 0 },
+    enabled: !!projectId
+  })
   const totalPages = Math.ceil(data.count / limit)
 
   useEffect(() => {
@@ -208,17 +229,20 @@ const ProjectReview: FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-max overflow-scroll">
           {data.files.map((file) => {
+            console.log(file)
+            // Cast to AnnotationType for image files (ReviewCard expects array-based metadata)
+            const metadata = file.metadata as AnnotationType | undefined
             return (
               <ReviewCard
                 key={file.id}
                 image={file}
                 limit={limit}
                 skip={skip}
-                polygons={file.metadata?.polygons || []}
-                circles={file.metadata?.circles || []}
-                rectangles={file.metadata?.rectangles || []}
-                faces={file.metadata?.faces || []}
-                lines={file.metadata?.lines || []}
+                polygons={metadata?.polygons || []}
+                circles={metadata?.circles || []}
+                rectangles={metadata?.rectangles || []}
+                faces={metadata?.faces || []}
+                lines={metadata?.lines || []}
                 selectedAnnotatorId={selectedAnnotator?.value}
                 filterDate={filterDate as Date}
                 fileStatus={fileStatus}

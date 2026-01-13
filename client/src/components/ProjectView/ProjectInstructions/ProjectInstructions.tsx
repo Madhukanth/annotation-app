@@ -1,15 +1,14 @@
 import { FC } from 'react'
 import { CKEditor } from '@ckeditor/ckeditor5-react'
 import { useParams } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 
 import {
   createInstructionFileUploadUrl,
-  fetchProjectById,
-  updateProject,
   uploadProjectInstructionFile
 } from '@renderer/helpers/axiosRequests'
+import { useProject, useUpdateProject } from '@/hooks/useProjects'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
 import UploadAdapter from './UploadAdapter'
@@ -19,21 +18,14 @@ const ProjectInstructions: FC = () => {
   const { projectid: projectId } = useParams()
   const currentUser = useUserStore((s) => s.user)
 
-  const { data: projectData, isFetching } = useQuery(
-    ['project-id', { orgId: orgId!, projectId: projectId! }],
-    fetchProjectById,
-    {
-      enabled: !!orgId && !!projectId,
-      initialData: null
-    }
-  )
-  const { mutate: updateProjectMutate } = useMutation(updateProject)
+  const { data: projectData, isFetching } = useProject(projectId || '')
+  const { mutate: updateProjectMutate } = useUpdateProject()
   const { mutateAsync: createUploadUrlMutate } = useMutation(createInstructionFileUploadUrl)
   const { mutateAsync: uploadProjectInstFile } = useMutation(uploadProjectInstructionFile)
 
   const handleEditorChange = (editorState: string) => {
-    if (!orgId || !projectId) return
-    updateProjectMutate({ orgId, projectId, instructions: editorState })
+    if (!projectId) return
+    updateProjectMutate({ projectId, input: { instructions: editorState } })
   }
 
   if (isFetching) {
@@ -41,12 +33,14 @@ const ProjectInstructions: FC = () => {
   }
 
   let editable = true
-  if (currentUser && projectData) {
-    editable = !projectData.annotators.includes(currentUser.id)
+  if (currentUser && projectData && projectData.annotators) {
+    editable = !projectData.annotators.some((a) => a.id === currentUser.id)
   }
 
-  function uploadPlugin(editor) {
-    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function uploadPlugin(editor: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    editor.plugins.get('FileRepository').createUploadAdapter = (loader: any) => {
       return new UploadAdapter(
         loader,
         orgId || null,
@@ -64,7 +58,8 @@ const ProjectInstructions: FC = () => {
       <CKEditor
         disabled={!editable}
         config={{ extraPlugins: [uploadPlugin] }}
-        editor={ClassicEditor}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        editor={ClassicEditor as any}
         data={projectData?.instructions || ''}
         onChange={(_event, editor) => {
           const data = editor.getData()

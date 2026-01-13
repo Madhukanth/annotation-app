@@ -3,10 +3,9 @@ import { ChangeEvent, FC, useEffect, useState } from 'react'
 import CustomModal from '@renderer/components/common/CustomModal'
 import { useClassesStore } from '@renderer/store/classes.store'
 import CustomSelect from './common/Select'
-import { useQuery } from '@tanstack/react-query'
-import { fetchAnnotationClasses } from '@renderer/helpers/axiosRequests'
 import { useParams } from 'react-router-dom'
 import AnnotationClass from '@renderer/models/AnnotationClass.model'
+import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 
 type AddNameModalProps = {
   initName: string
@@ -30,7 +29,7 @@ const AddNameModal: FC<AddNameModalProps> = ({
   initName,
   selectedClass: defaultSelectedClass
 }) => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
   const setClasses = useClassesStore((s) => s.setClasses)
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
@@ -41,11 +40,21 @@ const AddNameModal: FC<AddNameModalProps> = ({
   const [text, setText] = useState('')
   const [ID, setID] = useState('')
 
-  const { data: classes } = useQuery(
-    ['classes', { orgId: orgId!, projectId: projectId! }],
-    fetchAnnotationClasses,
-    { enabled: !!orgId, initialData: [] }
-  )
+  const { data: annotationClassesData = [] } = useAnnotationClasses(projectId || '')
+  // Transform to legacy format
+  const classes: AnnotationClass[] = annotationClassesData.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+    attributes: c.attributes || [],
+    text: c.has_text || false,
+    ID: c.has_id || false,
+    orgId: c.org_id,
+    projectId: c.project_id,
+    notes: c.notes || '',
+    createdAt: c.created_at || '',
+    modifiedAt: c.updated_at || ''
+  }))
   const classSelectOptions = classes.map((c) => ({ label: c.name, value: c.id }))
   const selectedClass = selectedClassOpt
     ? classes.find((c) => c.id === selectedClassOpt.value)

@@ -45,8 +45,10 @@ export const createProjectController = async (
       taskType,
       otherOptionals
     )
-    const projectJson = projectDoc.toJSON()
-    projectId = projectJson.id
+    if (!projectDoc) {
+      throw new Error('Failed to create project')
+    }
+    projectId = projectDoc.id
 
     if (
       storage === 'azure' &&
@@ -73,7 +75,7 @@ export const createProjectController = async (
 
       // Update the project with the container name and prefix
       await ProjectService.dbUpdateProject(projectId, {
-        azureContainerName: containerName,
+        azure_container_name: containerName,
         ...(prefix && { prefix }),
       })
 
@@ -81,7 +83,7 @@ export const createProjectController = async (
         otherOptionals.azureStorageAccount,
         otherOptionals.azurePassKey,
         containerName,
-        projectJson,
+        projectDoc,
         undefined,
         prefix
       )
@@ -89,7 +91,7 @@ export const createProjectController = async (
 
     return res
       .status(httpStatus.CREATED)
-      .json({ id: projectJson.id, name: projectJson.name })
+      .json({ id: projectDoc.id, name: projectDoc.name })
   } catch (err) {
     if (projectId) {
       await ProjectService.dbDeleteProject(projectId)
@@ -151,14 +153,7 @@ export const removeUserFromProjectController = async (
 ) => {
   try {
     const { projectid: projectId, userid: userId } = req.params
-    const updatedProject = await ProjectService.dbRemoveUserFromProject(
-      projectId,
-      userId
-    )
-    if (!updatedProject) {
-      throw new APIError('Project not found', httpStatus.NOT_FOUND)
-    }
-
+    await ProjectService.dbRemoveUserFromProject(projectId, userId)
     return res.status(httpStatus.OK).json(userId)
   } catch (err) {
     next(err)
@@ -177,11 +172,10 @@ export const getProjectUsersController = async (
       throw new APIError('Project not found', httpStatus.NOT_FOUND)
     }
 
-    const projectJson = projectDoc.toJSON()
     return res.status(httpStatus.OK).json({
-      dataManagers: projectJson.dataManagers,
-      annotators: projectJson.annotators,
-      reviewers: projectJson.reviewers,
+      dataManagers: projectDoc.data_managers,
+      annotators: projectDoc.annotators,
+      reviewers: projectDoc.reviewers,
     })
   } catch (err) {
     next(err)
@@ -433,14 +427,14 @@ export const updateProjectController = async (
     const updatedDoc = await ProjectService.dbUpdateProject(projectId, {
       ...req.body,
       ...(req.body.defaultClassId && {
-        defaultClassId: getObjectId(req.body.defaultClassId),
+        default_class_id: req.body.defaultClassId,
       }),
     })
     if (!updatedDoc) {
       throw new Error('Project not found')
     }
 
-    return res.status(httpStatus.OK).json(updatedDoc.toJSON())
+    return res.status(httpStatus.OK).json(updatedDoc)
   } catch (err) {
     next(err)
   }
@@ -458,7 +452,7 @@ export const getProjectController = async (
       throw new Error('Project not found')
     }
 
-    return res.status(httpStatus.OK).json(projectDoc.toJSON())
+    return res.status(httpStatus.OK).json(projectDoc)
   } catch (err) {
     next(err)
   }
@@ -487,18 +481,18 @@ export const createFileUploadUrl = async (
     let uploadUrl = `${basePath}/${fileId}/upload`
     if (project.storage === 'aws') {
       uploadUrl = await createPutPresignedUrl(
-        project.awsRegion,
-        project.awsApiVersion,
-        project.awsAccessKeyId,
-        project.awsSecretAccessKey,
-        project.awsBucketName,
+        project.aws_region ?? '',
+        project.aws_api_version ?? '',
+        project.aws_access_key_id ?? '',
+        project.aws_secret_access_key ?? '',
+        project.aws_bucket_name ?? '',
         `${project.id}/instructions/${fileName}`,
         type
       )
     } else if (project.storage === 'azure') {
       uploadUrl = await getBlobUrl(
-        project.azureStorageAccount,
-        project.azurePassKey,
+        project.azure_storage_account ?? '',
+        project.azure_pass_key ?? '',
         project.id,
         `instructions/${fileName}`,
         1000
@@ -508,17 +502,17 @@ export const createFileUploadUrl = async (
     let getUrl = relativePath
     if (project.storage === 'aws') {
       getUrl = await createGetPresignedURL(
-        project.awsRegion,
-        project.awsApiVersion,
-        project.awsAccessKeyId,
-        project.awsSecretAccessKey,
-        project.awsBucketName,
+        project.aws_region ?? '',
+        project.aws_api_version ?? '',
+        project.aws_access_key_id ?? '',
+        project.aws_secret_access_key ?? '',
+        project.aws_bucket_name ?? '',
         `${project.id}/instructions/${fileName}`
       )
     } else if (project.storage === 'azure') {
       getUrl = await getBlobUrl(
-        project.azureStorageAccount,
-        project.azurePassKey,
+        project.azure_storage_account ?? '',
+        project.azure_pass_key ?? '',
         project.id,
         `instructions/${fileName}`,
         1000
@@ -596,20 +590,19 @@ export const syncProjectController = async (
       throw new Error(`Project with id ${projectId} not found`)
     }
 
-    const projectJson = projectDoc.toJSON()
     if (
-      projectJson.storage === 'azure' &&
-      projectJson.azureStorageAccount &&
-      projectJson.azurePassKey &&
-      projectJson.azureContainerName
+      projectDoc.storage === 'azure' &&
+      projectDoc.azure_storage_account &&
+      projectDoc.azure_pass_key &&
+      projectDoc.azure_container_name
     ) {
       listBlobsAndCreateFiles(
-        projectJson.azureStorageAccount,
-        projectJson.azurePassKey,
-        projectJson.azureContainerName.split('/')[0],
-        projectJson,
-        projectJson.syncedAt,
-        projectJson.prefix
+        projectDoc.azure_storage_account,
+        projectDoc.azure_pass_key,
+        projectDoc.azure_container_name.split('/')[0],
+        projectDoc,
+        projectDoc.synced_at ? new Date(projectDoc.synced_at) : undefined,
+        projectDoc.prefix ?? undefined
       )
     }
 
@@ -667,9 +660,9 @@ export const exportProjectController = async (
     }
 
     let exportJson: any = {}
-    if (projectDoc.taskType === 'classification') {
+    if (projectDoc.task_type === 'classification') {
       exportJson = await ProjectService.dbExportClassifications(projectId)
-    } else if (projectDoc.taskType === 'object-annotation') {
+    } else if (projectDoc.task_type === 'object-annotation') {
       exportJson = await ProjectService.dbExportAnnotations(projectId)
     }
 
@@ -743,7 +736,7 @@ export const addMembersController = async (
             httpStatus.NOT_FOUND
           )
         }
-        userId = user._id.toString()
+        userId = user.id
       }
 
       if (member.role === 'datamanager') {

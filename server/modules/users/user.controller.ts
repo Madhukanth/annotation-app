@@ -21,8 +21,7 @@ export const getUsersController = async (
     }
 
     const userDocs = await UserService.dbSearchUsersBy(email)
-    const usersCollection = userDocs.map((user) => user.toJSON())
-    return res.status(httpStatus.OK).json(usersCollection)
+    return res.status(httpStatus.OK).json(userDocs)
   } catch (err) {
     next(err)
   }
@@ -57,8 +56,7 @@ export const getUserInvites = async (
       inviteeId: userId,
       status: 'pending',
     })
-    const inviteJson = inviteDocs.map((i) => i.toJSON())
-    return res.status(httpStatus.OK).json(inviteJson)
+    return res.status(httpStatus.OK).json(inviteDocs)
   } catch (err) {
     next(err)
   }

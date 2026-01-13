@@ -7,7 +7,7 @@ import { useHotkeys } from 'react-hotkeys-hook'
 import { Stage as StageType } from 'konva/lib/Stage'
 
 import { cn } from '@renderer/utils/cn'
-import { createShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, CreateShapeInput } from '@/services/supabase'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { generateId } from '@renderer/utils/vars'
 import Tooltip from '@renderer/components/common/Tooltip'
@@ -55,7 +55,9 @@ const AnnotationToolbar: FC<AnnotationToolbarProps> = ({
   // const circles = useImageStore((s) => s.circles)
   // const addCircle = useImageStore((s) => s.addCircle)
 
-  const { mutate: createShapeMutate } = useMutation(createShape)
+  const { mutate: createShapeMutate } = useMutation({
+    mutationFn: (input: CreateShapeInput) => shapesService.createShape(input)
+  })
 
   const getScale = useCallback(() => {
     const imgEle = imgRef.current
@@ -133,28 +135,24 @@ const AnnotationToolbar: FC<AnnotationToolbarProps> = ({
       const w = x2 - x1
       const h = y2 - y1
 
-      const cShape: Omit<ShapeType, 'id'> = {
-        ...nRect,
+      const cShape: CreateShapeInput = {
+        id: nRect.id,
+        name: nRect.name,
         x: x1,
         y: y1,
         height: h,
         width: w,
-        stroke: selectedColor,
         strokeWidth: 2,
-        color: selectedColor,
         type: 'rectangle',
         orgId,
         projectId,
         fileId,
+        classId: selectedClass?.id,
+        notes: nRect.notes,
         atFrame: 1
       }
-      createShapeMutate({
-        orgId,
-        projectId,
-        fileId,
-        shape: cShape
-      })
-      useFilesStore.getState().addShapeToFile(fileId, 'rectangle', cShape as ShapeType)
+      createShapeMutate(cShape)
+      useFilesStore.getState().addShapeToFile(fileId, 'rectangle', { ...cShape, id: nRect.id } as ShapeType)
     }
   }, [getCursorPosition, getScale, drawingShape, selectedColor, aiPoints, fileId, orgId, projectId])
 

@@ -3,9 +3,8 @@ import { ChangeEvent, FC, useEffect, useState } from 'react'
 import CustomModal from '@renderer/components/common/CustomModal'
 import { useClassesStore } from '@renderer/store/classes.store'
 import CustomSelect from './common/Select'
-import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
-import { fetchAnnotationClasses } from '@renderer/helpers/axiosRequests'
+import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 
 type EditModalProps = {
   isOpen: boolean
@@ -43,7 +42,7 @@ const EditModal: FC<EditModalProps> = ({
   text: initText,
   ID: initID
 }) => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
   const setClasses = useClassesStore((s) => s.setClasses)
   const [newName, setName] = useState('')
   const [newNotes, setNotes] = useState('')
@@ -54,11 +53,22 @@ const EditModal: FC<EditModalProps> = ({
   const [text, setText] = useState('')
   const [ID, setID] = useState('')
 
-  const { data: classes } = useQuery(
-    ['classes', { orgId: orgId!, projectId: projectId! }],
-    fetchAnnotationClasses,
-    { enabled: !!orgId, initialData: [] }
-  )
+  const { data: annotationClassesData = [] } = useAnnotationClasses(projectId || '')
+
+  // Transform snake_case to camelCase for compatibility
+  const classes = annotationClassesData.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+    notes: c.notes || '',
+    attributes: c.attributes || [],
+    text: c.has_text || false,
+    ID: c.has_id || false,
+    orgId: c.org_id,
+    projectId: c.project_id,
+    createdAt: c.created_at || '',
+    modifiedAt: c.updated_at || c.created_at || ''
+  }))
 
   const classSelectOptions = classes.map((c) => ({ label: c.name, value: c.id }))
   const selectedClass = selectedClassOpt

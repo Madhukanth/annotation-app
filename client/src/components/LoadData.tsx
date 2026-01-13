@@ -1,84 +1,61 @@
-import { fetchProjectFiles, fetchProjects } from '@renderer/helpers/axiosRequests'
-
 import { useFilesStore } from '@renderer/store/files.store'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useProjectStore } from '@renderer/store/project.store'
-import { useUserStore } from '@renderer/store/user.store'
-import { useQuery } from '@tanstack/react-query'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import Loader from './common/Loader'
+import { useProjects } from '@/hooks/useProjects'
+import { filesService } from '@/services/supabase'
+import { transformFileToLegacy, transformProjectToLegacy } from '@/utils/transformers'
 
 const LoadData: FC<{ children: ReactNode }> = ({ children }) => {
   const { orgid: orgId, projectid: projectId } = useParams()
   const [searchParams] = useSearchParams()
-  const limit = Number(searchParams.get('limit'))
-  const skip = Number(searchParams.get('skip'))
-  const projectSkip = Number(searchParams.get('projectSkip') || 0)
-  const projectLimit = Number(searchParams.get('projectLimit') || 20)
+  const limit = Number(searchParams.get('limit') || 20)
+  const skip = Number(searchParams.get('skip') || 0)
 
-  const user = useUserStore((s) => s.user)
-  const projects = useProjectStore((s) => s.projects)
   const setProjects = useProjectStore((s) => s.setProjects)
   const setFiles = useFilesStore((s) => s.setFiles)
   const [fetchingProjects, setFetchingProjects] = useState(true)
   const [fetchingFiles, setFetchingFiles] = useState(true)
   const setSelectedOrg = useOrgStore((s) => s.setSelectedOrg)
 
-  const {
-    data: projectsData,
-    refetch: refetchProjects,
-    isFetched: projectsSuccess
-  } = useQuery(
-    ['projects', { orgId: orgId!, userId: user!.id, limit: projectLimit, skip: projectSkip }],
-    fetchProjects,
-    { initialData: { projects: [], count: 0 }, enabled: false }
-  )
-
-  const {
-    data: filesData,
-    refetch: refetchFiles,
-    isFetched: filesSuccess
-  } = useQuery(
-    [
-      'project-files',
-      {
-        orgId: orgId!,
-        projectId: projectId!,
-        skip: skip || 0,
-        complete: false,
-        limit: limit || 20
-      }
-    ],
-    fetchProjectFiles,
-    { initialData: { files: [], count: 0 }, enabled: false }
-  )
+  // Fetch projects using Supabase
+  const { data: projectsData, isFetched: projectsFetched } = useProjects(orgId || '')
 
   useEffect(() => {
     if (orgId) {
       setSelectedOrg(orgId)
-      refetchProjects()
     }
-  }, [orgId, refetchProjects, setSelectedOrg, projectId, projects])
+  }, [orgId, setSelectedOrg])
 
   useEffect(() => {
-    if (!projectsSuccess) return
+    if (!projectsFetched) return
 
-    setProjects(projectsData.projects)
+    if (projectsData) {
+      setProjects(projectsData.map(transformProjectToLegacy))
+    }
     setFetchingProjects(false)
+
     if (!projectId) {
       setFetchingFiles(false)
     } else {
-      refetchFiles()
+      // Fetch files for the project
+      const fetchFiles = async () => {
+        try {
+          const { files } = await filesService.getFilesWithCount(projectId, skip, limit, {
+            complete: false
+          })
+          setFiles(files.map(transformFileToLegacy))
+        } catch (error) {
+          console.error('Error fetching files:', error)
+        } finally {
+          setFetchingFiles(false)
+        }
+      }
+      fetchFiles()
     }
-  }, [projectsData, setProjects, projectId, projectsSuccess, setFetchingFiles, refetchFiles])
-
-  useEffect(() => {
-    if (filesSuccess) {
-      setFiles(filesData.files)
-      setFetchingFiles(false)
-    }
-  }, [filesData, setFiles, filesSuccess])
+  }, [projectsData, projectsFetched, setProjects, projectId, skip, limit, setFiles])
 
   if (!orgId) {
     return <Navigate to="/not-found" />

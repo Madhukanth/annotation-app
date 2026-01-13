@@ -32,7 +32,7 @@ export const createLineSlice: StateCreator<VideoSlices, [], [], LineSlice> = (se
 
   addLine: (frame, newLine) => {
     set((state) => ({
-      lines: { ...state.lines, [frame]: [...(state[frame].lines || []), newLine] }
+      lines: { ...state.lines, [frame]: [...(state.lines[frame] || []), newLine] }
     }))
   },
 

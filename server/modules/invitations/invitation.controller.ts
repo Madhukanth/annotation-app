@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
 
-import * as OrganizationService from '../organizations/organization.service'
 import * as ProjectService from '../projects/project.service'
 import * as InviteValidation from './invitation.validation'
 import * as InviteService from './invitation.service'
@@ -28,7 +27,7 @@ export const createInvitationController = async (
         invitee,
         role
       )
-      inviteList.push(inviteDoc.toJSON())
+      inviteList.push(inviteDoc)
     }
     return res.status(httpStatus.CREATED).json(inviteList)
   } catch (err) {
@@ -52,7 +51,7 @@ export const deleteInvitationController = async (
       throw new APIError('Invitation not found', httpStatus.NOT_FOUND)
     }
 
-    return res.status(httpStatus.OK).json(deletedDoc.toJSON())
+    return res.status(httpStatus.OK).json(deletedDoc)
   } catch (err) {
     next(err)
   }
@@ -71,7 +70,6 @@ export const updateInvitationStatusController = async (
     const {
       inviteid: inviteId,
       projectid: projectId,
-      orgid: orgId,
     } = req.params
     const { status } = req.body
 
@@ -81,34 +79,25 @@ export const updateInvitationStatusController = async (
         throw new APIError('Invitation not found', httpStatus.NOT_FOUND)
       }
 
-      const inviteJson = inviteDoc.toJSON()
-
-      const updatedOrg = await OrganizationService.dbAddUserToOrg(
-        orgId,
-        inviteJson.invitee.toString()
-      )
-      if (!updatedOrg) {
-        throw new APIError('Organization not found', httpStatus.NOT_FOUND)
-      }
-
-      if (inviteJson.role === 'datamanager') {
+      // Add user to appropriate project role (this implicitly makes them org members)
+      if (inviteDoc.role === 'datamanager') {
         await ProjectService.dbAddDataManagerToProject(
           projectId,
-          inviteJson.invitee.toString()
+          inviteDoc.invitee_id
         )
       }
 
-      if (inviteJson.role === 'reviewer') {
+      if (inviteDoc.role === 'reviewer') {
         await ProjectService.dbAddReviewerToProject(
           projectId,
-          inviteJson.invitee.toString()
+          inviteDoc.invitee_id
         )
       }
 
-      if (inviteJson.role === 'annotator') {
+      if (inviteDoc.role === 'annotator') {
         await ProjectService.dbAddAnnotatorToProject(
           projectId,
-          inviteJson.invitee.toString()
+          inviteDoc.invitee_id
         )
       }
     }
@@ -122,7 +111,7 @@ export const updateInvitationStatusController = async (
       throw new APIError('Invitation not found', httpStatus.NOT_FOUND)
     }
 
-    return res.status(httpStatus.OK).json(updatedDoc.toJSON())
+    return res.status(httpStatus.OK).json(updatedDoc)
   } catch (err) {
     console.log(err)
     next(err)
@@ -147,7 +136,7 @@ export const getInvitesController = async (
       inviteeId: inviteeid,
       status,
     })
-    return res.status(httpStatus.OK).json(inviteDocs.map((i) => i.toJSON()))
+    return res.status(httpStatus.OK).json(inviteDocs)
   } catch (err) {
     next(err)
   }

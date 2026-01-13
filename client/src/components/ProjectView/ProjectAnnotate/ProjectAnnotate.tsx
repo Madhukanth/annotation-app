@@ -1,9 +1,10 @@
 import { FC, useEffect } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { useOrgStore } from '@renderer/store/organization.store'
 import AnnotateCard from './AnnotateCard'
-import { deleteFile, fetchProjectFiles } from '@renderer/helpers/axiosRequests'
+import * as filesService from '@/services/supabase/files.service'
+import { useDeleteFile } from '@/hooks/useFiles'
+import { useQuery } from '@tanstack/react-query'
 import { errorNotification } from '@renderer/components/common/Notification'
 import Pagination from '@renderer/components/common/Pagination'
 import { useFilesStore } from '@renderer/store/files.store'
@@ -13,6 +14,7 @@ import { useUserStore } from '@renderer/store/user.store'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useProjectStore } from '@renderer/store/project.store'
 import Button from '@renderer/components/common/Button'
+import { transformFileToLegacy } from '@/utils/transformers'
 
 const ProjectAnnotate: FC = () => {
   const [searchParams] = useSearchParams()
@@ -30,22 +32,33 @@ const ProjectAnnotate: FC = () => {
 
   const limit = 20
   const skip = currentPage * limit
-  const { data, refetch, isFetching } = useQuery(
-    [
+
+  const { data, refetch, isFetching } = useQuery({
+    queryKey: [
       'project-files',
       {
-        orgId: orgId!,
         projectId: projectId!,
         skip,
         limit,
         complete: false,
-        annotator: user?.id,
+        annotatorId: user?.id,
         skipped: false
       }
     ],
-    fetchProjectFiles,
-    { initialData: { files: [], count: 0 }, enabled: !!orgId && !!projectId }
-  )
+    queryFn: async () => {
+      const result = await filesService.getFilesWithCount(projectId!, skip, limit, {
+        complete: false,
+        annotatorId: user?.id,
+        skipped: false
+      })
+      return {
+        files: result.files.map(transformFileToLegacy),
+        count: result.count
+      }
+    },
+    initialData: { files: [], count: 0 },
+    enabled: !!projectId
+  })
   const totalPages = Math.ceil(data.count / limit)
 
   useEffect(() => {
@@ -56,18 +69,22 @@ const ProjectAnnotate: FC = () => {
     setFiles(data.files)
   }, [data.files])
 
-  const { mutate: deleteFileMutator, isLoading: isDeleting } = useMutation(deleteFile, {
-    onSuccess() {
-      refetch()
-    },
-    onError() {
-      errorNotification('Failed to delete image')
-    }
-  })
+  const { mutate: deleteFileMutator, isLoading: isDeleting } = useDeleteFile()
+
+  const handleDeleteWithRefetch = (fileId: string) => {
+    deleteFileMutator(fileId, {
+      onSuccess() {
+        refetch()
+      },
+      onError() {
+        errorNotification('Failed to delete image')
+      }
+    })
+  }
 
   const handleDeleteFile = (fileId: string) => {
-    if (!orgId || !projectId) return
-    deleteFileMutator({ orgId, projectId, fileId })
+    if (!projectId) return
+    handleDeleteWithRefetch(fileId)
   }
 
   if (!project) {

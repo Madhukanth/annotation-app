@@ -1,34 +1,49 @@
 import Button from '@renderer/components/common/Button'
 import { errorNotification } from '@renderer/components/common/Notification'
 import OutlineButton from '@renderer/components/common/OutlineButton'
-import { fetchReceivedInvites, updateInvite } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUserInvitations, useAcceptInvitation, useDeclineInvitation } from '@/hooks/useInvitations'
 
 const Invites: FC = () => {
   const currentUser = useUserStore((s) => s.user)
-  const { data: inviteList } = useQuery(
-    ['invites', { userId: currentUser!.id }],
-    fetchReceivedInvites,
-    { enabled: !!currentUser, initialData: [] }
-  )
+  const { data: inviteList = [] } = useUserInvitations(currentUser?.id || '')
   const orgId = useOrgStore((s) => s.selectedOrg)
   const navigate = useNavigate()
 
   const queryClient = useQueryClient()
-  const { mutate: updateMutate, isLoading } = useMutation(updateInvite, {
-    onSuccess() {
-      queryClient.invalidateQueries({ queryKey: ['organizations'] })
-      queryClient.invalidateQueries({ queryKey: ['invites'] })
-      navigate(`/orgs/${orgId}/projects`)
-    },
-    onError() {
-      errorNotification('Failed to update the invitation')
-    }
-  })
+
+  const acceptMutation = useAcceptInvitation()
+  const declineMutation = useDeclineInvitation()
+
+  const handleAccept = (invitationId: string) => {
+    acceptMutation.mutate(invitationId, {
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: ['organizations'] })
+        queryClient.invalidateQueries({ queryKey: ['invitations'] })
+        navigate(`/orgs/${orgId}/projects`)
+      },
+      onError() {
+        errorNotification('Failed to accept the invitation')
+      }
+    })
+  }
+
+  const handleDecline = (invitationId: string) => {
+    declineMutation.mutate(invitationId, {
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: ['invitations'] })
+      },
+      onError() {
+        errorNotification('Failed to decline the invitation')
+      }
+    })
+  }
+
+  const isLoading = acceptMutation.isLoading || declineMutation.isLoading
 
   return (
     <div className="h-full w-full flex flex-col pb-6 px-6 pt-6">
@@ -61,11 +76,11 @@ const Invites: FC = () => {
                 >
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Name</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left">
-                    {invite.projectId.orgId.name}
+                    {(invite as any).projectId?.orgId?.name || invite.project?.org?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Email</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left overflow-hidden text-ellipsis">
-                    {invite.projectId.name}
+                    {(invite as any).projectId?.name || invite.project?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Role</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left capitalize">
@@ -73,20 +88,13 @@ const Invites: FC = () => {
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Invited By</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left capitalize">
-                    {invite.inviter.name}
+                    {(invite as any).inviter?.name || invite.inviter?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400"></th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left">
                     <OutlineButton
                       disabled={isLoading}
-                      onClick={() =>
-                        updateMutate({
-                          orgId: invite.projectId.orgId.id,
-                          projectId: invite.projectId.id,
-                          inviteId: invite.id,
-                          status: 'declined'
-                        })
-                      }
+                      onClick={() => handleDecline(invite.id)}
                       className="rounded-lg text-base h-10 mr-6 border-red-500 text-red-500"
                     >
                       Decline
@@ -94,14 +102,7 @@ const Invites: FC = () => {
                     <Button
                       className="h-10"
                       disabled={isLoading}
-                      onClick={() =>
-                        updateMutate({
-                          orgId: invite.projectId.orgId.id,
-                          projectId: invite.projectId.id,
-                          inviteId: invite.id,
-                          status: 'accepted'
-                        })
-                      }
+                      onClick={() => handleAccept(invite.id)}
                     >
                       Accept
                     </Button>

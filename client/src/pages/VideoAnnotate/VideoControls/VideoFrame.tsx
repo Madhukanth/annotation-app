@@ -1,11 +1,11 @@
 import { ChangeEvent, FC, KeyboardEvent, RefObject, useEffect, useState } from 'react'
 
 import { useHotkeys } from 'react-hotkeys-hook'
-import { VideoFileType } from '@models/File.model'
+import { VideoObjType } from '@models/File.model'
 
 type VideoFrameProps = {
   videoRef: RefObject<HTMLVideoElement>
-  videoObj: VideoFileType
+  videoObj: VideoObjType
   currentTimeAndFrame: { time: number; frame: number }
   disableKeyShortcuts: boolean
   color: string

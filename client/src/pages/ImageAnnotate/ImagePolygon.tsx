@@ -6,7 +6,7 @@ import { useParams } from 'react-router-dom'
 import Polygon from '@renderer/components/KonvaPolygon'
 import PolygonType from '@models/Polygon.model'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import PointType from '@models/Point.model'
 import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
@@ -24,7 +24,10 @@ const ImagePolygon: FC<PolygonProps> = ({ stageRef, imgSize, selectCommentTab })
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+  const { mutate: updateShapeMutate } = useMutation({
+    mutationFn: ({ shapeId, shape }: { shapeId: string; shape: UpdateShapeInput }) =>
+      shapesService.updateShape(shapeId, shape)
+  })
 
   const polygons = useImageStore((state) => state.polygons)
   const updatePolygon = useImageStore((state) => state.updatePolygon)
@@ -47,11 +50,8 @@ const ImagePolygon: FC<PolygonProps> = ({ stageRef, imgSize, selectCommentTab })
     updatePolygon(updatedPoly.id, { ...updatedPoly })
 
     if (!orgId || !projectId || !fileId) return
-    const uPoly = { ...updatedPoly, points: getPointsScaled(updatedPoly.points) }
+    const uPoly: UpdateShapeInput = { points: getPointsScaled(updatedPoly.points) }
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: updatedPoly.id,
       shape: uPoly
     })

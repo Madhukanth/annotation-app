@@ -3,8 +3,7 @@ import AsyncSelect from 'react-select/async'
 import { MultiValue } from 'react-select'
 import { useParams } from 'react-router-dom'
 
-import { searchTags } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
+import * as annotationClassesService from '@/services/supabase/annotationClasses.service'
 import AnnotationClass from '@models/AnnotationClass.model'
 import { cn } from '@renderer/utils/cn'
 
@@ -16,15 +15,29 @@ type SearchAndSelectTagsProps = {
 
 const SearchAndSelectTags: FC<SearchAndSelectTagsProps> = ({ value, onChange, className }) => {
   const [searchTagList, setSearchTagList] = useState<AnnotationClass[]>([])
-  const orgId = useOrgStore((state) => state.selectedOrg)
   const { projectid: projectId } = useParams()
 
   const fetchAndSetTags = async (val: string) => {
-    const tags = await searchTags(orgId!, projectId!, {
-      skip: '0',
-      limit: '20',
+    if (!projectId) return []
+    const results = await annotationClassesService.searchAnnotationClasses(projectId, {
+      skip: 0,
+      limit: 20,
       name: val
     })
+    // Transform snake_case to camelCase
+    const tags: AnnotationClass[] = results.map((r) => ({
+      id: r.id,
+      name: r.name,
+      color: r.color,
+      notes: r.notes || '',
+      attributes: r.attributes || [],
+      text: r.has_text || false,
+      ID: r.has_id || false,
+      orgId: r.org_id,
+      projectId: r.project_id,
+      createdAt: r.created_at || '',
+      modifiedAt: r.updated_at || r.created_at || ''
+    }))
     setSearchTagList(tags)
     return tags
   }

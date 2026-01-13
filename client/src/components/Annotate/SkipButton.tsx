@@ -1,16 +1,14 @@
-import { useMutation } from '@tanstack/react-query'
-
 import Button from '../common/Button'
-import { updateFileSkippedStatus } from '@renderer/helpers/axiosRequests'
+import { useUpdateFile } from '@/hooks/useFiles'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useParams } from 'react-router-dom'
 import { useImageStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 import { useProjectStore } from '@renderer/store/project.store'
 
 const SkipButton = () => {
-  const { orgid: orgId, projectid: projectId } = useParams()
+  const { projectid: projectId } = useParams()
 
-  const updateFile = useFilesStore((s) => s.updateFile)
+  const updateFileStore = useFilesStore((s) => s.updateFile)
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
 
@@ -27,19 +25,17 @@ const SkipButton = () => {
   const anyShapesExist =
     polygons.length || circles.length || rectangles.length || faces.length || lines.length
 
-  const skipMutation = useMutation({ mutationFn: updateFileSkippedStatus })
+  const { mutate: skipMutation } = useUpdateFile()
 
   const handleSkip = () => {
-    if (!orgId || !projectId || !fileId) return
+    if (!projectId || !fileId) return
 
     if (anyShapesExist && !isClassificationProject) return
 
-    updateFile(fileId, { skipped: true, complete: false })
-    skipMutation.mutate({
-      orgId: orgId,
-      projectId: projectId,
+    updateFileStore(fileId, { skipped: true, complete: false })
+    skipMutation({
       fileId: fileId,
-      skipped: true
+      input: { skipped: true }
     })
     const nextImgBtn = document.getElementById('next-img-btn')
     if (nextImgBtn) {

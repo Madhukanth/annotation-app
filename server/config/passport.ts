@@ -29,7 +29,7 @@ const jwtCallback: VerifyCallback = async (payload, done) => {
       return done(error, false)
     }
 
-    const userSafeInfo = getUserSafeInfo(userDoc.toJSON())
+    const userSafeInfo = getUserSafeInfo(userDoc)
     return done(null, userSafeInfo)
   } catch (error) {
     return done(error, false)

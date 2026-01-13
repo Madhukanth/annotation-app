@@ -1,13 +1,13 @@
 import { FC } from 'react'
 import { useFormik } from 'formik'
 import { SingleValue } from 'react-select'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { UserRoleType } from '@renderer/store/user.store'
 import CustomSelect from '../common/Select'
-import { registerUser } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { errorNotification } from '../common/Notification'
+import { useCreateUser } from '@/hooks/useUsers'
 
 type AddUserFormikType = {
   name: string
@@ -19,20 +19,18 @@ type AddUserFormikType = {
 const AddUser: FC<{ handleClose: () => void }> = ({ handleClose }) => {
   const queryClient = useQueryClient()
   const orgId = useOrgStore((s) => s.selectedOrg)
-  const registerUserMutation = useMutation({
-    mutationFn: registerUser
-  })
+  const createUserMutation = useCreateUser()
 
   const formik = useFormik<AddUserFormikType>({
     initialValues: { email: '', password: '', name: '', role: 'user' },
     onSubmit: (values) => {
       if (!orgId) return
-      registerUserMutation.mutate(
+      createUserMutation.mutate(
         { ...values, orgId },
         {
           onSuccess() {
             formik.resetForm({ values: { email: '', password: '', name: '', role: 'user' } })
-            queryClient.invalidateQueries({ queryKey: ['users', { orgId }] })
+            queryClient.invalidateQueries({ queryKey: ['users'] })
             handleClose()
           },
           onError() {
@@ -127,7 +125,7 @@ const AddUser: FC<{ handleClose: () => void }> = ({ handleClose }) => {
             </button>
 
             <button
-              disabled={registerUserMutation.isLoading}
+              disabled={createUserMutation.isLoading}
               className="w-1/2 mt-12 bg-brand text-white text-base p-2 rounded-md disabled:opacity-50"
               type="submit"
             >

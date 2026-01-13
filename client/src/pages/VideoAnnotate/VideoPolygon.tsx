@@ -1,12 +1,10 @@
 import { FC, Fragment, RefObject } from 'react'
 import Konva from 'konva'
 import { useMutation } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
 
 import Polygon from '@renderer/components/KonvaPolygon'
 import PolygonType from '@models/Polygon.model'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { updateShape } from '@renderer/helpers/axiosRequests'
+import { shapesService } from '@/services/supabase'
 import PointType from '@models/Point.model'
 import ImgSize from '@models/ImgSize.model'
 import { useUntrackedVideoStore, useVideoPlayerStore, useVideoStore } from './store/video.store'
@@ -24,11 +22,13 @@ const VideoPolygon: FC<VideoPolygonProps> = ({
   selectCommentTab,
   calculateCurrentFrame
 }) => {
-  const orgId = useOrgStore((s) => s.selectedOrg)
-  const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
+
+  const updateShapeMutation = useMutation({
+    mutationFn: ({ shapeId, data }: { shapeId: string; data: Parameters<typeof shapesService.updateShape>[1] }) =>
+      shapesService.updateShape(shapeId, data)
+  })
 
   const currentTimeAndFrame = useVideoPlayerStore((state) => state.currentTimeAndFrameMap)
 
@@ -60,13 +60,10 @@ const VideoPolygon: FC<VideoPolygonProps> = ({
   const handlePolyDragOrChange = (updatedPoly: PolygonType) => {
     updatePolygon(calculateCurrentFrame(), updatedPoly.id, { ...updatedPoly })
 
-    if (!orgId || !projectId || !fileId) return
-    updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
+    if (!fileId) return
+    updateShapeMutation.mutate({
       shapeId: updatedPoly.id,
-      shape: { ...updatedPoly, points: getPointsScaled(updatedPoly.points) }
+      data: { points: getPointsScaled(updatedPoly.points) }
     })
   }
 

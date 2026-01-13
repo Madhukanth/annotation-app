@@ -12,9 +12,7 @@ import CircleType from '@models/Circle.model'
 import FaceType from '@models/Face.model'
 import EditModal from '@renderer/components/EditModal'
 import LineType from '@models/Line.model'
-import { useMutation } from '@tanstack/react-query'
-import { deleteShape, updateShape } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
+import { useUpdateShape, useDeleteShape } from '@/hooks/useShapes'
 import { useParams } from 'react-router-dom'
 import { ShapeType } from '@models/Shape.model'
 import PointType from '@models/Point.model'
@@ -35,12 +33,11 @@ const AnnotationList: FC<AnnotationListProps> = ({ onAddLinePoints, onAddPolyPoi
   const [editFace, setEditFace] = useState<FaceType | null>(null)
   const [editLine, setEditLine] = useState<LineType | null>(null)
 
-  const orgId = useOrgStore((s) => s.selectedOrg)
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { mutate: updateShapeMutate } = useMutation(updateShape)
-  const { mutate: deleteShapeMutate } = useMutation(deleteShape)
+  const { mutate: updateShapeMutate } = useUpdateShape()
+  const { mutate: deleteShapeMutate } = useDeleteShape()
 
   const selectedShape = useImageUntrackedStore((s) => s.selectedShape)
   const setSelectedShape = useImageUntrackedStore((s) => s.setSelectedShape)
@@ -147,8 +144,20 @@ const AnnotationList: FC<AnnotationListProps> = ({ onAddLinePoints, onAddPolyPoi
 
     handleCancel()
 
-    if (!orgId || !projectId || !fileId || !shapeId || !shapeType) return
-    updateShapeMutate({ orgId, projectId, fileId, shapeId, shape: { ...updateData } })
+    if (!projectId || !fileId || !shapeId || !shapeType) return
+    updateShapeMutate({
+      shapeId,
+      input: {
+        name: updateData.name,
+        notes: updateData.notes,
+        classId: updateData.classId,
+        attribute: updateData.attribute,
+        textField: updateData.text,
+        idField: updateData.ID,
+        stroke: updateData.stroke
+      },
+      fileId
+    })
     useFilesStore.getState().updateFileShapes(fileId, shapeId, shapeType, { ...updateData })
   }
 
@@ -301,8 +310,8 @@ const AnnotationList: FC<AnnotationListProps> = ({ onAddLinePoints, onAddPolyPoi
       deleteLine(selectedShape.id)
     }
 
-    if (orgId && projectId && fileId && selectedShape) {
-      deleteShapeMutate({ orgId, projectId, fileId, shapeId: selectedShape.id })
+    if (projectId && fileId && selectedShape) {
+      deleteShapeMutate({ shapeId: selectedShape.id, fileId })
       useFilesStore.getState().deleteShapeFromFile(fileId, selectedShape.id, selectedShape.type)
     }
   }
@@ -329,8 +338,8 @@ const AnnotationList: FC<AnnotationListProps> = ({ onAddLinePoints, onAddPolyPoi
       deleteLine(shapeId)
     }
 
-    if (orgId && projectId && fileId && shapeId) {
-      deleteShapeMutate({ orgId, projectId, fileId, shapeId })
+    if (projectId && fileId && shapeId) {
+      deleteShapeMutate({ shapeId, fileId })
       useFilesStore.getState().deleteShapeFromFile(fileId, shapeId, shapeType)
     }
   }
@@ -360,13 +369,11 @@ const AnnotationList: FC<AnnotationListProps> = ({ onAddLinePoints, onAddPolyPoi
       setSelectedLinePoint(null)
     }
 
-    if (!orgId || !projectId || !fileId || !uShape || !shapeType) return
+    if (!projectId || !fileId || !uShape || !shapeType) return
     updateShapeMutate({
-      orgId,
-      projectId,
-      fileId,
       shapeId: uShape.id,
-      shape: { points: getPointsScaled(uShape.points) }
+      input: { points: getPointsScaled(uShape.points) },
+      fileId
     })
     useFilesStore.getState().updateFileShapes(fileId, uShape.id, shapeType, {
       id: uShape.id,

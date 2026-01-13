@@ -1,4 +1,4 @@
-import AnnotationType from './Annotation.model'
+import { VideoAnnotationType } from './Annotation.model'
 import { VideoMetadataModel } from './video_metadata.model'
 
 export interface VideoModel {
@@ -13,5 +13,5 @@ export interface VideoModel {
   ctime: string
   mtime: string
   metadata?: VideoMetadataModel
-  annotations: AnnotationType
+  annotations: VideoAnnotationType
 }

@@ -1,7 +1,7 @@
 import { omit, pick } from 'lodash'
 import httpStatus from 'http-status'
 
-import { UserType } from './user.model'
+import { UserType } from './user.service'
 import APIError from '../../errors/api-error'
 
 export type UserSafeInfoType = ReturnType<typeof getUserSafeInfo>
@@ -30,5 +30,5 @@ export const checkDuplicateEmail = (error: Error) => {
 }
 
 export const omitPassword = (user: UserType) => {
-  return omit(user, ['password'])
+  return user // User from Supabase doesn't include password field
 }

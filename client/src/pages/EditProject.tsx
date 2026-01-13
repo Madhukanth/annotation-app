@@ -8,9 +8,9 @@ import { useDropzone } from 'react-dropzone'
 import {
   completeFileUpload,
   createFileUploadUrl,
-  updateProjectMutator,
   uploadFileMutator
 } from '@renderer/helpers/axiosRequests'
+import { useUpdateProject } from '@/hooks/useProjects'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { SIDEBAR_WIDTH } from '@renderer/constants'
 import {
@@ -35,7 +35,7 @@ const EditProject: FC = () => {
   const orgId = useOrgStore((s) => s.selectedOrg)
   const navigate = useNavigate()
   const { mutateAsync: uploadFileMutate } = useMutation(uploadFileMutator)
-  const { mutateAsync: updateProjectMutate } = useMutation(updateProjectMutator)
+  const { mutateAsync: updateProjectMutate } = useUpdateProject()
   const { mutateAsync: createFileUploadUrlMutate } = useMutation(createFileUploadUrl)
   const { mutateAsync: completeFileUploadMutate } = useMutation(completeFileUpload)
 
@@ -71,7 +71,7 @@ const EditProject: FC = () => {
     setUploadProgress(progressObj)
     setUploading(true)
 
-    await updateProjectMutate({ orgId, projectName: name, projectId })
+    await updateProjectMutate({ projectId, input: { name } })
 
     const failedFiles: File[] = []
     for (const file of files) {

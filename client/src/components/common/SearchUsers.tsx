@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from 'react'
 import AsyncSelect from 'react-select/async'
 import { MultiValue, SingleValue } from 'react-select'
 
-import { searchUsers } from '@renderer/helpers/axiosRequests'
+import * as usersService from '@/services/supabase/users.service'
 import { useUserStore } from '@renderer/store/user.store'
 import { SelectOption } from '@models/UI.model'
 
@@ -38,7 +38,7 @@ const SearchAndSelectUsers: FC<SearchAndSelectUsersProps> = ({
   const fetchAndSetUsers = async (val: string) => {
     if (!currentUser) return []
 
-    const users = await searchUsers(val)
+    const users = await usersService.searchUsers(val || '')
     let filteredUsers = [...users]
     if (filterCurrentUser) {
       filteredUsers = users.filter((u) => filterCurrentUser && u.id !== currentUser.id)

@@ -1,15 +1,12 @@
 import { FC, useState } from 'react'
 import { SingleValue, MultiValue } from 'react-select'
 import { IoMdTrash } from 'react-icons/io'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import {
-  addMemberToProject,
-  fetchProjectUsers,
-  removeUserFromProject,
-  revertImages
-} from '@renderer/helpers/axiosRequests'
+import { revertImages } from '@renderer/helpers/axiosRequests'
 import { InviteRoleType, UserType, inviteRoles, useUserStore } from '@renderer/store/user.store'
+import { useProjectUsers } from '@/hooks/useUsers'
+import { supabase } from '@/lib/supabase'
 import Button from '@renderer/components/common/Button'
 import { useOrgStore } from '@renderer/store/organization.store'
 import {
@@ -39,40 +36,29 @@ const ProjectMembers: FC = () => {
   const currentUser = useUserStore((s) => s.user)
   const queryClient = useQueryClient()
 
-  const { mutate: removeUserMutate, isLoading: isDeletingUser } = useMutation(
-    removeUserFromProject,
-    {
-      onSuccess(deletedUserId: string) {
-        successNotification('User removed from project')
-        setDelUser(null)
-        if (!project) return
-        queryClient.setQueryData(
-          ['project-users', { orgId: selectedOrg!, projectId: project.id }],
-          (
-            data:
-              | {
-                  dataManagers: UserType[]
-                  annotators: UserType[]
-                  reviewers: UserType[]
-                }
-              | undefined
-          ) => {
-            if (!data) return data
-            return {
-              dataManagers: data.dataManagers.filter((u) => u.id !== deletedUserId),
-              annotators: data.annotators.filter((u) => u.id !== deletedUserId),
-              reviewers: data.reviewers.filter((u) => u.id !== deletedUserId)
-            }
-          }
-        )
-      },
-      onError() {
-        errorNotification('Failed to remove user from project')
-      }
+  const { mutate: removeUserMutate, isLoading: isDeletingUser } = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const table =
+        role === 'datamanager'
+          ? 'project_data_managers'
+          : role === 'reviewer'
+            ? 'project_reviewers'
+            : 'project_annotators'
+      await supabase.from(table).delete().eq('project_id', project?.id).eq('user_id', userId)
+      return userId
+    },
+    onSuccess() {
+      successNotification('User removed from project')
+      setDelUser(null)
+      queryClient.invalidateQueries({ queryKey: ['users', 'project', project?.id] })
+    },
+    onError() {
+      errorNotification('Failed to remove user from project')
     }
-  )
+  })
 
-  const { mutate: revertImagesMutate, isLoading: isReverting } = useMutation(revertImages, {
+  const { mutate: revertImagesMutate, isLoading: isReverting } = useMutation({
+    mutationFn: revertImages,
     onSuccess() {
       setRevertUser(null)
       successNotification('Images reverted successfully')
@@ -82,19 +68,34 @@ const ProjectMembers: FC = () => {
     }
   })
 
-  const { isLoading: isAdding, mutate: addMemberMutate } = useMutation(addMemberToProject, {
+  const { isLoading: isAdding, mutate: addMemberMutate } = useMutation({
+    mutationFn: async ({
+      userIds,
+      role
+    }: {
+      userIds: string[]
+      role: InviteRoleType
+    }) => {
+      const table =
+        role === 'datamanager'
+          ? 'project_data_managers'
+          : role === 'reviewer'
+            ? 'project_reviewers'
+            : 'project_annotators'
+      const inserts = userIds.map((userId) => ({
+        project_id: project?.id,
+        user_id: userId
+      }))
+      await supabase.from(table).insert(inserts)
+    },
     onSuccess: () => {
       setSelectedUsers([])
       setSelectedRole(inviteRoles[0])
-      queryClient.invalidateQueries(['project-users'])
+      queryClient.invalidateQueries({ queryKey: ['users', 'project', project?.id] })
     }
   })
 
-  const { data: projectUsers } = useQuery(
-    ['project-users', { orgId: selectedOrg!, projectId: project!.id }],
-    fetchProjectUsers,
-    { initialData: null, enabled: !!selectedOrg && !!currentUser && !!project }
-  )
+  const { data: projectUsers } = useProjectUsers(project?.id || '')
 
   const handleUserSelect = (val: MultiValue<SelectOption>) => {
     setSelectedUsers(val as SelectOption[])
@@ -118,8 +119,6 @@ const ProjectMembers: FC = () => {
     }
 
     addMemberMutate({
-      orgId: selectedOrg,
-      projectId: project.id,
       userIds: selectedUsers.map(({ value }) => value),
       role: selectedRole
     })
@@ -139,7 +138,7 @@ const ProjectMembers: FC = () => {
             loading={isDeletingUser}
             onCancel={() => setDelUser(null)}
             onDelete={() => {
-              removeUserMutate({ orgId: selectedOrg!, projectId: project.id, userId: delUser.id })
+              removeUserMutate({ userId: delUser.id, role: 'datamanager' })
             }}
           />
         </CustomModal>

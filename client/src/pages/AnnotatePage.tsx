@@ -7,13 +7,13 @@ import { HEADER_HEIGHT } from '@renderer/constants'
 import HeaderLayout from '@renderer/components/Annotate/HeaderLayout'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useFilesStore } from '@renderer/store/files.store'
-import { useQuery } from '@tanstack/react-query'
-import { fetchProjects, queryFetcher } from '@renderer/helpers/axiosRequests'
-import { useUserStore } from '@renderer/store/user.store'
 import { useProjectStore } from '@renderer/store/project.store'
 import Loader from '@renderer/components/common/Loader'
-import FileType from '@renderer/models/File.model'
 import { errorNotification, successNotification } from '@renderer/components/common/Notification'
+import { useProjects } from '@/hooks/useProjects'
+import { filesService } from '@/services/supabase'
+import type { FileWithMetadata } from '@/services/supabase/files.service'
+import type FileType from '@renderer/models/File.model'
 
 const AnnotatePage: FC = () => {
   const { orgid: orgId, projectid: projectId } = useParams()
@@ -33,7 +33,6 @@ const AnnotatePage: FC = () => {
   const prevSkipTo = searchParams.get('prevSkipTo')
   const projectSkip = Number(searchParams.get('projectSkip') || 0)
   const projectLimit = Number(searchParams.get('projectLimit') || 20)
-  const user = useUserStore((s) => s.user)
   const setProjects = useProjectStore((s) => s.setProjects)
   const appendFiles = useFilesStore((s) => s.appendFiles)
   const selectedFile = useFilesStore((s) => s.selectedFile)
@@ -46,15 +45,11 @@ const AnnotatePage: FC = () => {
   const isReviewPage = location.pathname.startsWith('/review')
   const keepCount = isReviewPage ? 0 : 10
 
-  const { data: projectsData, refetch: refetchProjects } = useQuery(
-    ['projects', { orgId: orgId!, userId: user!.id, limit: projectLimit, skip: projectSkip }],
-    fetchProjects,
-    { enabled: false }
-  )
+  // Fetch projects using Supabase
+  const { data: projectsData } = useProjects(orgId || '')
 
   useEffect(() => {
     setFiles([])
-    refetchProjects()
     setIsInit(true)
 
     return () => {
@@ -63,27 +58,24 @@ const AnnotatePage: FC = () => {
   }, [])
 
   useEffect(() => {
-    if (!isInit) return
+    if (!isInit || !projectId) return
 
-    const fetchMoreFiles = (): Promise<{ files: FileType[]; count: number }> => {
-      return queryFetcher(`/orgs/${orgId}/projects/${projectId}/files`, {
-        skip: skip.toString(),
-        limit: limit.toString(),
-        ...(complete && { complete: complete.toString() }),
-        ...(completedAfter && { completedAfter: new Date(completedAfter).toISOString() }),
-        ...(skipped && { skipped: skipped.toString() }),
-        ...(hasShapes && { hasShapes: hasShapes.toString() }),
-        ...(skippedAfter && { skippedAfter: new Date(skippedAfter).toISOString() }),
-        ...(annotator && { annotator }),
+    const fetchMoreFiles = async (): Promise<{ files: FileWithMetadata[]; count: number }> => {
+      const filters: Parameters<typeof filesService.getFilesWithCount>[3] = {
+        ...(complete !== null && { complete: complete === 'true' }),
+        ...(completedAfter && { completedAfter }),
+        ...(skipped !== null && { skipped: skipped === 'true' }),
+        ...(hasShapes !== null && { hasShapes: hasShapes === 'true' }),
+        ...(skippedAfter && { skippedAfter }),
+        ...(annotator && { annotatorId: annotator }),
         ...(keepCount > 0 &&
           files.length > 0 && {
-            skipFileIds: files
-              .slice(-keepCount)
-              .map((f) => f.id)
-              .join(',')
+            skipFileIds: files.slice(-keepCount).map((f) => f.id)
           }),
         assign: isReviewPage ? 'false' : 'true'
-      })
+      }
+
+      return filesService.getFilesWithCount(projectId, skip, limit, filters)
     }
 
     const handleFetchMoreFiles = async () => {
@@ -92,19 +84,22 @@ const AnnotatePage: FC = () => {
       try {
         const fetchData = await fetchMoreFiles()
         if (fetchData.files.length > 0) {
-          let fileToSelect = fetchData.files[0]
+          // Transform Supabase format to legacy format
+          const transformedFiles = fetchData.files.map((f) => transformFileToLegacy(f))
+
+          let fileToSelect = transformedFiles[0]
 
           if (prevSkipTo) {
-            fileToSelect = fetchData.files[fetchData.files.length - 1]
+            fileToSelect = transformedFiles[transformedFiles.length - 1]
 
             const skipTo = Number(prevSkipTo)
-            if (skip < limit && fetchData.files.length >= skipTo) {
-              fileToSelect = fetchData.files[skipTo - 1]
+            if (skip < limit && transformedFiles.length >= skipTo) {
+              fileToSelect = transformedFiles[skipTo - 1]
             }
           }
 
           setSelectedFile(fileToSelect)
-          appendFiles(fetchData.files, keepCount)
+          appendFiles(transformedFiles, keepCount)
         } else {
           successNotification(`No more files to ${isReviewPage ? 'review' : 'annotate'}`)
           if (orgId && projectId) {
@@ -139,8 +134,26 @@ const AnnotatePage: FC = () => {
   }, [orgId])
 
   useEffect(() => {
-    if (!projectsData) return
-    setProjects(projectsData.projects)
+    if (!projectsData || projectsData.length === 0) return
+    // Transform to legacy format
+    const transformedProjects = projectsData.map((p) => ({
+      id: p.id,
+      name: p.name,
+      orgId: p.org_id,
+      dataManagers: p.dataManagerIds,
+      reviewers: [] as string[],
+      annotators: [] as string[],
+      instructions: p.instructions || '',
+      createdAt: p.created_at || '',
+      modifiedAt: p.updated_at || '',
+      thumbnail: '',
+      storage: p.storage,
+      taskType: p.task_type,
+      defaultClassId: p.default_class_id || null,
+      isSyncing: p.is_syncing,
+      syncedAt: p.synced_at ? new Date(p.synced_at) : new Date()
+    }))
+    setProjects(transformedProjects)
   }, [projectsData])
 
   return (
@@ -163,6 +176,131 @@ const AnnotatePage: FC = () => {
       )}
     </div>
   )
+}
+
+// Helper function to transform Supabase file to legacy format
+function transformFileToLegacy(file: FileWithMetadata): FileType {
+  // Transform shapes from Supabase format to legacy format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformMetadata = (): any => {
+    if (!file.metadata) {
+      return {
+        rectangles: [],
+        circles: [],
+        polygons: [],
+        faces: [],
+        lines: []
+      }
+    }
+
+    // For images, metadata contains arrays of shapes
+    // For videos, metadata contains objects with frame keys
+    if (file.type === 'image') {
+      const meta = file.metadata as {
+        rectangles: unknown[]
+        circles: unknown[]
+        polygons: unknown[]
+        faces: unknown[]
+        lines: unknown[]
+      }
+      return {
+        rectangles: (meta.rectangles || []).map(transformShape),
+        circles: (meta.circles || []).map(transformShape),
+        polygons: (meta.polygons || []).map(transformShape),
+        faces: (meta.faces || []).map(transformShape),
+        lines: (meta.lines || []).map(transformShape)
+      }
+    } else {
+      // Video metadata has shapes organized by frame
+      const meta = file.metadata as {
+        rectangles: { [frame: number]: unknown[] }
+        circles: { [frame: number]: unknown[] }
+        polygons: { [frame: number]: unknown[] }
+        faces: { [frame: number]: unknown[] }
+        lines: { [frame: number]: unknown[] }
+      }
+      return {
+        rectangles: transformVideoShapes(meta.rectangles || {}),
+        circles: transformVideoShapes(meta.circles || {}),
+        polygons: transformVideoShapes(meta.polygons || {}),
+        faces: transformVideoShapes(meta.faces || {}),
+        lines: transformVideoShapes(meta.lines || {})
+      }
+    }
+  }
+
+  // Transform a single shape from Supabase snake_case to camelCase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformShape = (shape: any) => ({
+    id: shape.id,
+    name: shape.name,
+    type: shape.type,
+    notes: shape.notes,
+    stroke: shape.stroke,
+    strokeWidth: shape.stroke_width,
+    x: shape.x,
+    y: shape.y,
+    height: shape.height,
+    width: shape.width,
+    points: shape.points,
+    classId: shape.class_id,
+    text: shape.text_field,
+    ID: shape.id_field,
+    attribute: shape.attribute,
+    atFrame: shape.at_frame,
+    orgId: shape.org_id,
+    projectId: shape.project_id,
+    fileId: shape.file_id,
+    closed: shape.closed ?? false // Required for FaceType
+  })
+
+  // Transform video shapes (organized by frame) to legacy format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformVideoShapes = (frameShapes: { [frame: number]: unknown[] }): { [frame: number]: any[] } => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: { [frame: number]: any[] } = {}
+    for (const [frame, shapes] of Object.entries(frameShapes)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result[Number(frame)] = (shapes as any[]).map(transformShape)
+    }
+    return result
+  }
+
+  return {
+    id: file.id,
+    originalName: file.original_name || '',
+    relativePath: file.relative_path || '',
+    name: file.name || '',
+    orgId: file.org_id,
+    projectId: file.project_id,
+    url: file.url || '',
+    type: (file.type || 'image') as 'image' | 'video',
+    metadata: transformMetadata(),
+    annotators: file.annotator_id ? [file.annotator_id] : [],
+    reviewers: [],
+    createdAt: file.created_at || '',
+    complete: file.complete,
+    stageScale: 1,
+    storedIn: file.stored_in,
+    tags: (file.tags || []).map((t: { id: string; name: string; color: string }) => ({
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      attributes: [],
+      text: false,
+      ID: false,
+      orgId: file.org_id,
+      projectId: file.project_id,
+      notes: '',
+      createdAt: '',
+      modifiedAt: ''
+    })),
+    dbIndex: file.dbIndex || 0,
+    skipped: file.skipped,
+    fps: file.fps,
+    totalFrames: file.total_frames,
+    duration: file.duration
+  }
 }
 
 export default AnnotatePage

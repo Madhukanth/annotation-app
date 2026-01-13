@@ -53,19 +53,19 @@ export const createFileUrlController = async (
     let uploadUrl = `${basePath}/${fileId}/upload`
     if (project.storage === 'aws') {
       uploadUrl = await createPutPresignedUrl(
-        project.awsRegion,
-        project.awsApiVersion,
-        project.awsAccessKeyId,
-        project.awsSecretAccessKey,
-        project.awsBucketName,
+        project.aws_region ?? '',
+        project.aws_api_version ?? '',
+        project.aws_access_key_id ?? '',
+        project.aws_secret_access_key ?? '',
+        project.aws_bucket_name ?? '',
         `${project.id}/${updatedOriginalName}`,
         type
       )
     } else if (project.storage === 'azure') {
       uploadUrl = await AzureService.getBlobUrl(
-        project.azureStorageAccount,
-        project.azurePassKey,
-        project.azureContainerName.split('/')[0],
+        project.azure_storage_account ?? '',
+        project.azure_pass_key ?? '',
+        project.azure_container_name?.split('/')[0] ?? '',
         updatedOriginalName,
         1000
       )
@@ -103,23 +103,21 @@ export const completeUploadController = async (
         .json({ error: 'Project not found' })
     }
 
-    const projectJson = projectDoc.toJSON()
-
     let newUrl = relativePath
-    if (projectJson.storage === 'aws') {
+    if (projectDoc.storage === 'aws') {
       newUrl = await createGetPresignedURL(
-        projectJson.awsRegion,
-        projectJson.awsApiVersion,
-        projectJson.awsAccessKeyId,
-        projectJson.awsSecretAccessKey,
-        projectJson.awsBucketName,
-        `${projectJson.id}/${originalName}`
+        projectDoc.aws_region ?? '',
+        projectDoc.aws_api_version ?? '',
+        projectDoc.aws_access_key_id ?? '',
+        projectDoc.aws_secret_access_key ?? '',
+        projectDoc.aws_bucket_name ?? '',
+        `${projectDoc.id}/${originalName}`
       )
-    } else if (projectJson.storage === 'azure') {
+    } else if (projectDoc.storage === 'azure') {
       newUrl = await AzureService.getBlobUrl(
-        projectJson.azureStorageAccount,
-        projectJson.azurePassKey,
-        projectJson.azureContainerName.split('/')[0],
+        projectDoc.azure_storage_account ?? '',
+        projectDoc.azure_pass_key ?? '',
+        projectDoc.azure_container_name?.split('/')[0] ?? '',
         originalName,
         1000
       )
@@ -127,24 +125,26 @@ export const completeUploadController = async (
 
     const fileDoc = await FileService.dbCreateFile({
       ...restBody,
-      _id: getObjectId(fileId),
-      orgId: getObjectId(orgId),
-      projectId: getObjectId(projectId),
+      org_id: orgId,
+      project_id: projectId,
       name: originalName,
-      originalName,
-      relativePath,
+      original_name: originalName,
+      relative_path: relativePath,
       url: newUrl,
-      annotator: null,
-      assignedAt: null,
-      storedIn: projectJson.storage,
+      annotator_id: undefined,
+      assigned_at: undefined,
+      stored_in: projectDoc.storage,
       complete: false,
-      tags: [],
-      hasShapes: false,
-      annotatedAt: null,
+      has_shapes: false,
+      annotated_at: undefined,
       skipped: false,
+      type: restBody.type || 'image',
+      total_frames: 0,
+      fps: 0,
+      duration: 0,
     })
 
-    return res.status(httpStatus.CREATED).json(fileDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(fileDoc)
   } catch (err) {
     next(err)
   }
@@ -223,7 +223,7 @@ export const updateFileController = async (
       throw new APIError('File not found', httpStatus.NOT_FOUND)
     }
 
-    return res.status(httpStatus.OK).json(updatedDoc.toJSON())
+    return res.status(httpStatus.OK).json(updatedDoc)
   } catch (err) {
     next(err)
   }
@@ -241,7 +241,7 @@ export const deleteFileController = async (
       throw new APIError('File not found')
     }
 
-    return res.status(httpStatus.OK).json(deletedFile.toJSON())
+    return res.status(httpStatus.OK).json(deletedFile)
   } catch (err) {
     next(err)
   }
@@ -268,7 +268,7 @@ export const associateTagIdsToFileController = async (
         tagNames
       )
 
-      const classIdList = classes.map((c) => c.toJSON().id)
+      const classIdList = classes.map((c) => c.id)
       await FileService.dbUpdateFileTagsByName(
         orgId,
         projectId,
@@ -387,39 +387,38 @@ export const uploadVideoFileController = async (
         }
 
         let newUrl = fileRelativePath
-        const projectJson = projectDoc.toJSON()
-        if (projectJson.storage === 'aws') {
+        if (projectDoc.storage === 'aws') {
           await AwsService.uploadLocalFile(
-            projectJson.awsRegion,
-            projectJson.awsApiVersion,
-            projectJson.awsAccessKeyId,
-            projectJson.awsSecretAccessKey,
-            projectJson.awsBucketName,
-            `${projectJson.id}/${updatedOriginalName}`,
+            projectDoc.aws_region ?? '',
+            projectDoc.aws_api_version ?? '',
+            projectDoc.aws_access_key_id ?? '',
+            projectDoc.aws_secret_access_key ?? '',
+            projectDoc.aws_bucket_name ?? '',
+            `${projectDoc.id}/${updatedOriginalName}`,
             'video/webm',
             outVideo
           )
           newUrl = await createGetPresignedURL(
-            projectJson.awsRegion,
-            projectJson.awsApiVersion,
-            projectJson.awsAccessKeyId,
-            projectJson.awsSecretAccessKey,
-            projectJson.awsBucketName,
-            `${projectJson.id}/${updatedOriginalName}`
+            projectDoc.aws_region ?? '',
+            projectDoc.aws_api_version ?? '',
+            projectDoc.aws_access_key_id ?? '',
+            projectDoc.aws_secret_access_key ?? '',
+            projectDoc.aws_bucket_name ?? '',
+            `${projectDoc.id}/${updatedOriginalName}`
           )
           await fse.remove(outVideo)
-        } else if (projectJson.storage === 'azure') {
+        } else if (projectDoc.storage === 'azure') {
           await AzureService.uploadLocalFile(
-            projectJson.azureStorageAccount,
-            projectJson.azurePassKey,
-            projectJson.azureContainerName.split('/')[0],
+            projectDoc.azure_storage_account ?? '',
+            projectDoc.azure_pass_key ?? '',
+            projectDoc.azure_container_name?.split('/')[0] ?? '',
             updatedOriginalName,
             outVideo
           )
           newUrl = await AzureService.getBlobUrl(
-            projectJson.azureStorageAccount,
-            projectJson.azurePassKey,
-            projectJson.azureContainerName.split('/')[0],
+            projectDoc.azure_storage_account ?? '',
+            projectDoc.azure_pass_key ?? '',
+            projectDoc.azure_container_name?.split('/')[0] ?? '',
             updatedOriginalName,
             1000
           )
@@ -427,17 +426,16 @@ export const uploadVideoFileController = async (
         }
 
         const fileDoc = await FileService.dbUpdateFileById(fileId, {
-          orgId: getObjectId(orgId),
-          projectId: getObjectId(projectId),
+          org_id: orgId,
+          project_id: projectId,
           name: updatedOriginalName,
-          originalName,
-          relativePath: fileRelativePath,
+          original_name: originalName,
+          relative_path: fileRelativePath,
           url: newUrl,
-          storedIn: projectJson.storage,
+          stored_in: projectDoc.storage,
           complete: false,
-          tags: [],
           type: 'video',
-          totalFrames: videoMetadata.framescount,
+          total_frames: videoMetadata.framescount,
           fps: videoMetadata.fps,
           duration: videoMetadata.duration,
         })
@@ -446,7 +444,7 @@ export const uploadVideoFileController = async (
           throw new Error('File not found')
         }
 
-        return res.status(httpStatus.OK).json(fileDoc.toJSON())
+        return res.status(httpStatus.OK).json(fileDoc)
       } catch (err) {
         logger.error(err)
         await fse.remove(tmpPath)
@@ -506,12 +504,11 @@ export const addAzureFilesController = async (
       throw new Error(`Project with id ${projectId} not found`)
     }
 
-    const projectJson = projectDoc.toJSON()
     const fileIds = await AzureService.addAzureFilesToDb(
-      projectJson.azureStorageAccount,
-      projectJson.azurePassKey,
-      projectJson.azureContainerName.split('/')[0],
-      projectJson,
+      projectDoc.azure_storage_account ?? '',
+      projectDoc.azure_pass_key ?? '',
+      projectDoc.azure_container_name?.split('/')[0] ?? '',
+      projectDoc,
       blobNames
     )
 

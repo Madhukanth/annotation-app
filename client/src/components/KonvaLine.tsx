@@ -7,7 +7,6 @@ import Konva from 'konva'
 import PointType from '@models/Point.model'
 import LineType from '@models/Line.model'
 import { generateId } from '@renderer/utils/vars'
-import KonvaChat from './KonvaChat'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 
 type LineProps = {

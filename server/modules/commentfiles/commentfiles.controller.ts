@@ -23,8 +23,7 @@ export const getCommentFileController = async (
     const commentFileDocs = await CommentFilesService.dbGetCommentFiles(
       commentId
     )
-    const commentFilesJson = commentFileDocs.map((c) => c.toJSON())
-    return res.status(httpStatus.OK).json(commentFilesJson)
+    return res.status(httpStatus.OK).json(commentFileDocs)
   } catch (err) {
     next(err)
   }
@@ -58,18 +57,18 @@ export const createCommentFileUrl = async (
     let uploadUrl = `${basePath}/${commentFileId}/upload`
     if (project.storage === 'aws') {
       uploadUrl = await createPutPresignedUrl(
-        project.awsRegion,
-        project.awsApiVersion,
-        project.awsAccessKeyId,
-        project.awsSecretAccessKey,
-        project.awsBucketName,
+        project.aws_region ?? '',
+        project.aws_api_version ?? '',
+        project.aws_access_key_id ?? '',
+        project.aws_secret_access_key ?? '',
+        project.aws_bucket_name ?? '',
         `${project.id}/files/${fileId}/comments/${commentId}/${fileName}`,
         type
       )
     } else if (project.storage === 'azure') {
       uploadUrl = await getBlobUrl(
-        project.azureStorageAccount,
-        project.azurePassKey,
+        project.azure_storage_account ?? '',
+        project.azure_pass_key ?? '',
         project.id,
         `files/${fileId}/comments/${commentId}/${fileName}`,
         1000
@@ -173,42 +172,40 @@ export const completeUploadController = async (
         .json({ error: 'Project not found' })
     }
 
-    const projectJson = projectDoc.toJSON()
-
     let newUrl = relativePath
-    if (projectJson.storage === 'aws') {
+    if (projectDoc.storage === 'aws') {
       newUrl = await createGetPresignedURL(
-        projectJson.awsRegion,
-        projectJson.awsApiVersion,
-        projectJson.awsAccessKeyId,
-        projectJson.awsSecretAccessKey,
-        projectJson.awsBucketName,
-        `${projectJson.id}/files/${fileId}/comments/${commentId}/${name}`
+        projectDoc.aws_region ?? '',
+        projectDoc.aws_api_version ?? '',
+        projectDoc.aws_access_key_id ?? '',
+        projectDoc.aws_secret_access_key ?? '',
+        projectDoc.aws_bucket_name ?? '',
+        `${projectDoc.id}/files/${fileId}/comments/${commentId}/${name}`
       )
-    } else if (projectJson.storage === 'azure') {
+    } else if (projectDoc.storage === 'azure') {
       newUrl = await getBlobUrl(
-        projectJson.azureStorageAccount,
-        projectJson.azurePassKey,
-        projectJson.id,
+        projectDoc.azure_storage_account ?? '',
+        projectDoc.azure_pass_key ?? '',
+        projectDoc.id,
         `files/${fileId}/comments/${commentId}/${name}`,
         1000
       )
     }
 
     const commentFileDoc = await CommentFilesService.dbCreateCommentFile({
+      _id: getObjectId(commentFileId),
       orgId: getObjectId(orgId),
       projectId: getObjectId(projectId),
       fileId: getObjectId(fileId),
       commentId: getObjectId(commentId),
-      _id: getObjectId(commentFileId),
       name,
       originalName,
-      storedIn: projectJson.storage,
+      storedIn: projectDoc.storage,
       url: newUrl,
       relativeUrl: relativePath,
       type: 'image',
     })
-    return res.status(httpStatus.CREATED).json(commentFileDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(commentFileDoc)
   } catch (err) {
     next(err)
   }

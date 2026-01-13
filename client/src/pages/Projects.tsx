@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiPlus } from 'react-icons/fi'
 
-import { deleteProject, fetchProjects, syncProject } from '@renderer/helpers/axiosRequests'
+import { syncProject } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
 import Button from '@renderer/components/common/Button'
@@ -12,10 +12,12 @@ import { errorNotification, successNotification } from '@renderer/components/com
 import Pagination from '@renderer/components/common/Pagination'
 import CardSkeleton from '@renderer/components/common/CardSkeleton'
 import ProjectThumbnail from '@renderer/components/ProjectThumbnail'
-import ProjectType from '@models/Project.model'
 import CustomModal from '@renderer/components/common/CustomModal'
 import ConfirmDelete from '@renderer/components/common/ConfirmDelete'
 import { useSearchParams } from 'react-router-dom'
+import { useDeleteProject, projectsKeys } from '@/hooks/useProjects'
+import type { ProjectListItem } from '@/services/supabase/projects.service'
+import { projectsService } from '@/services/supabase'
 
 const Projects: FC = () => {
   const [, setSearchParams] = useSearchParams()
@@ -26,41 +28,32 @@ const Projects: FC = () => {
   const currentPage = useProjectStore((s) => s.currentPage)
   const setCurrentPage = useProjectStore((s) => s.setCurrentPage)
 
-  const [delProject, setDelProject] = useState<ProjectType | null>(null)
+  const [delProject, setDelProject] = useState<ProjectListItem | null>(null)
 
   const queryClient = useQueryClient()
   const limit = 20
-  const skip = currentPage * limit
-  const { data, refetch, isFetching } = useQuery(
-    ['projects', { orgId: selectedOrg!, userId: user!.id, limit, skip }],
-    fetchProjects,
-    {
-      initialData: { projects: [], count: 0 },
-      enabled: !!selectedOrg && !!user
-    }
-  )
-  const totalPages = Math.ceil(data.count / limit)
 
-  const { mutate: deleteProjectMutate, isLoading: isDeleting } = useMutation(deleteProject, {
-    onSuccess() {
-      refetch()
-      setDelProject(null)
-    },
-    onError() {
-      errorNotification('Failed to delete the project')
-    }
+  const { data: projects = [], isFetching } = useQuery({
+    queryKey: projectsKeys.list(selectedOrg || ''),
+    queryFn: () => projectsService.getProjects(selectedOrg || ''),
+    enabled: !!selectedOrg,
+    initialData: []
   })
-  const { mutate: syncProjectMutate } = useMutation({
-    mutationFn: syncProject
-  })
+
+  // Client-side pagination
+  const totalPages = Math.ceil(projects.length / limit)
+  const paginatedProjects = projects.slice(currentPage * limit, (currentPage + 1) * limit)
+
+  const deleteProjectMutation = useDeleteProject()
 
   const handleDeleteProject = (projectId: string) => {
     if (!selectedOrg) return
-    deleteProjectMutate(
-      { orgId: selectedOrg, projectId },
+    deleteProjectMutation.mutate(
+      { projectId, orgId: selectedOrg },
       {
         onSuccess: () => {
           successNotification('Project deleted successfully')
+          setDelProject(null)
         },
         onError: () => {
           errorNotification('Failed to delete project')
@@ -69,28 +62,47 @@ const Projects: FC = () => {
     )
   }
 
+  // Sync project - this still needs to go through the server for storage access
+  const { mutate: syncProjectMutate } = useMutation({
+    mutationFn: syncProject
+  })
+
   useEffect(() => {
-    if (data) {
-      setProjects(data.projects)
+    if (projects.length > 0) {
+      // Transform to match old ProjectType format for the store
+      const transformedProjects = projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        orgId: p.org_id,
+        dataManagers: p.dataManagerIds,
+        reviewers: [] as string[],
+        annotators: [] as string[],
+        instructions: p.instructions || '',
+        createdAt: p.created_at || '',
+        modifiedAt: p.updated_at || '',
+        thumbnail: p.thumbnail || '',
+        storage: p.storage,
+        taskType: p.task_type,
+        defaultClassId: p.default_class_id || null,
+        isSyncing: p.is_syncing,
+        syncedAt: p.synced_at ? new Date(p.synced_at) : new Date()
+      }))
+      setProjects(transformedProjects)
     }
-  }, [data.projects])
+  }, [projects, setProjects])
 
   const handleSync = (projectId: string) => {
     queryClient.setQueryData(
-      ['projects', { orgId: selectedOrg!, userId: user!.id, limit, skip }],
-      (oldData: { projects: ProjectType[]; count: number } | undefined) => {
+      projectsKeys.list(selectedOrg!),
+      (oldData: ProjectListItem[] | undefined) => {
         if (!oldData) return oldData
 
-        return {
-          ...oldData,
-          projects: oldData.projects.map((p: ProjectType) => {
-            if (p.id === projectId) {
-              return { ...p, isSyncing: true }
-            }
-
-            return p
-          })
-        }
+        return oldData.map((p) => {
+          if (p.id === projectId) {
+            return { ...p, is_syncing: true }
+          }
+          return p
+        })
       }
     )
     updateProject(projectId, { isSyncing: true })
@@ -103,7 +115,7 @@ const Projects: FC = () => {
         <CustomModal isOpen closeModal={() => setDelProject(null)}>
           <ConfirmDelete
             name={`project "${delProject.name}"`}
-            loading={isDeleting}
+            loading={deleteProjectMutation.isLoading}
             onCancel={() => setDelProject(null)}
             onDelete={() => handleDeleteProject(delProject.id)}
           />
@@ -126,29 +138,43 @@ const Projects: FC = () => {
           )}
         </div>
 
-        {data.projects.length === 0 && !isFetching && (
+        {paginatedProjects.length === 0 && !isFetching && (
           <div className="flex justify-center items-center text-2xl">
             <p>No projects</p>
           </div>
         )}
 
-        {isFetching && data.projects.length === 0 && (
+        {isFetching && paginatedProjects.length === 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-6 overflow-scroll">
             <CardSkeleton />
-            {/* <CardSkeleton /> */}
-            {/* <CardSkeleton /> */}
-            {/* <CardSkeleton /> */}
-            {/* <CardSkeleton /> */}
-            {/* <CardSkeleton /> */}
             <CardSkeleton />
             <CardSkeleton />
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-6 overflow-scroll">
-          {data.projects.map((project) => {
+          {paginatedProjects.map((project) => {
             let isAdmin = false
             if (user) {
-              isAdmin = project.dataManagers.includes(user.id)
+              isAdmin = project.dataManagerIds.includes(user.id)
+            }
+
+            // Transform for ProjectThumbnail component
+            const projectForThumbnail = {
+              id: project.id,
+              name: project.name,
+              orgId: project.org_id,
+              dataManagers: project.dataManagerIds,
+              reviewers: [] as string[],
+              annotators: [] as string[],
+              instructions: project.instructions || '',
+              createdAt: project.created_at || '',
+              modifiedAt: project.updated_at || '',
+              thumbnail: project.thumbnail || '',
+              storage: project.storage,
+              taskType: project.task_type,
+              defaultClassId: project.default_class_id || null,
+              isSyncing: project.is_syncing,
+              syncedAt: project.synced_at ? new Date(project.synced_at) : new Date()
             }
 
             return (
@@ -157,7 +183,7 @@ const Projects: FC = () => {
                 className="w-full border border-font-0.14 rounded-lg bg-white h-fit"
               >
                 {project.thumbnail ? (
-                  <ProjectThumbnail project={project} />
+                  <ProjectThumbnail project={projectForThumbnail} />
                 ) : (
                   <div className="h-52 object-cover w-full rounded-t-md bg-black"></div>
                 )}
@@ -167,10 +193,13 @@ const Projects: FC = () => {
                     {project.name}
                   </p>
 
-                  <p className="text-sm opacity-50">{new Date(project.createdAt).toDateString()}</p>
+                  <p className="text-sm opacity-50">
+                    {project.created_at ? new Date(project.created_at).toDateString() : ''}
+                  </p>
 
                   <p className="text-xs opacity-50 mt-2">
-                    Last sync: {new Date(project.syncedAt || project.createdAt).toDateString()}
+                    Last sync:{' '}
+                    {new Date(project.synced_at || project.created_at || Date.now()).toDateString()}
                   </p>
 
                   <div className="flex items-center mt-4">
@@ -196,12 +225,12 @@ const Projects: FC = () => {
                           </OutlineButton>
                         ) : (
                           <OutlineButton
-                            disabled={project.isSyncing}
+                            disabled={project.is_syncing}
                             onClick={() => {
                               handleSync(project.id)
                             }}
                           >
-                            {project.isSyncing ? 'Syncing...' : 'Sync'}
+                            {project.is_syncing ? 'Syncing...' : 'Sync'}
                           </OutlineButton>
                         )}
                       </>
@@ -212,7 +241,7 @@ const Projects: FC = () => {
                     {isAdmin && (
                       <OutlineButton
                         onClick={() => setDelProject(project)}
-                        disabled={isDeleting}
+                        disabled={deleteProjectMutation.isLoading}
                         className="text-red-500"
                       >
                         Delete

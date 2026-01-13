@@ -6,7 +6,11 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "baseUrl": ".",
-    "paths": { "@renderer/*": ["src/*"], "@models/*": ["src/models/*"] },
+    "paths": {
+      "@/*": ["src/*"],
+      "@renderer/*": ["src/*"],
+      "@models/*": ["src/models/*"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

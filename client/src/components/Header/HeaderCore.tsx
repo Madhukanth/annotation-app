@@ -1,16 +1,16 @@
 import { FC } from 'react'
 import { FiLogOut } from 'react-icons/fi'
 import { FaUser } from 'react-icons/fa'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { SingleValue } from 'react-select'
 
 import CustomSelect from '../common/Select'
 import HoverAndClickTooltip from '../common/HoverAndClickTooltip'
-import { fetchOrganization, setAuthToken } from '@renderer/helpers/axiosRequests'
 import { useUserStore } from '@renderer/store/user.store'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { clearAuthTokenFromCookie } from '@renderer/helpers/cookie'
+import { useOrganizations } from '@/hooks/useOrganizations'
+import { supabase } from '@/lib/supabase'
 
 const HeaderCore: FC = () => {
   const navigate = useNavigate()
@@ -21,11 +21,7 @@ const HeaderCore: FC = () => {
   const orgId = useOrgStore((s) => s.selectedOrg)
   const setSelectedOrg = useOrgStore((s) => s.setSelectedOrg)
 
-  const { data: organizations } = useQuery(
-    ['organizations', { userId: user!.id }],
-    fetchOrganization,
-    { initialData: [], enabled: !!user }
-  )
+  const { data: organizations = [] } = useOrganizations(user?.id || '')
 
   const orgOptions = organizations.map((org) => ({
     value: org.id,
@@ -36,7 +32,7 @@ const HeaderCore: FC = () => {
   const handleLogout = async () => {
     clearAuthTokenFromCookie()
     setUser(null)
-    setAuthToken(null)
+    await supabase.auth.signOut()
     navigate('/login')
   }
 

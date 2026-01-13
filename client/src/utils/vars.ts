@@ -1,5 +1,4 @@
 import { Storage } from '@models/Project.model'
-import ObjectId from 'bson-objectid'
 
 export const getStoredUrl = (url: string, storedIn?: Storage) => {
   if (!storedIn || storedIn === 'default') {
@@ -10,7 +9,7 @@ export const getStoredUrl = (url: string, storedIn?: Storage) => {
 }
 
 export const generateId = () => {
-  return new ObjectId().toString()
+  return crypto.randomUUID()
 }
 
 export function groupIntoChunks<T>(array: T[], chunkSize: number) {
@@ -37,11 +36,7 @@ export function getRandomAnnotationColor() {
     return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)]
   }
 
-  // Convert RGB to hex
-  const rgbToHex = ([r, g, b]: number[]) =>
-    `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`
-
-  // Get random color in hex format
-  const rgb = hslToRgb(hue, saturation, lightness)
-  return rgbToHex(rgb)
+  // Get random color in rgb format (consistent with ChromePicker and shapes service)
+  const [r, g, b] = hslToRgb(hue, saturation, lightness)
+  return `rgb(${r}, ${g}, ${b})`
 }

@@ -5,16 +5,15 @@ import { Transformer as TransformerType } from 'konva/lib/shapes/Transformer'
 import { KonvaEventObject } from 'konva/lib/Node'
 
 import CircleType from '@models/Circle.model'
-import VideoCircleType from '@models/VideoCircle.model'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 
 type KonvaCircleProps = {
-  shapeProps: CircleType | VideoCircleType
+  shapeProps: CircleType
   isSelected: boolean
   stroke: string
   selectCommentTab: () => void
   selectCircle: (circleId: string) => void
-  updateCircle: (updatedCircle: CircleType | VideoCircleType) => void
+  updateCircle: (updatedCircle: CircleType) => void
 }
 
 const KonvaCircle: FC<KonvaCircleProps> = ({

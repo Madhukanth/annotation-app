@@ -1,15 +1,13 @@
 import { ChangeEvent, FC, KeyboardEventHandler, useState } from 'react'
 import { IoMdCloseCircle } from 'react-icons/io'
 import { ChromePicker } from 'react-color'
-import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
-import { AxiosError } from 'axios'
 
 import CustomModal from '../common/CustomModal'
 import Button from '../common/Button'
 import { errorNotification, warningNotification } from '../common/Notification'
 import { cn } from '@renderer/utils/cn'
-import { createAnnotationClass } from '@renderer/helpers/axiosRequests'
+import { useCreateAnnotationClass } from '@/hooks/useAnnotationClasses'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useClassesStore } from '@renderer/store/classes.store'
 import { getRandomAnnotationColor } from '@renderer/utils/vars'
@@ -28,7 +26,7 @@ const CreateClassModal: FC<CreateClassModalProps> = ({ isOpen, onCancel, isTag }
   const addClass = useClassesStore((s) => s.addClass)
   const { projectid: projectId } = useParams()
 
-  const { mutate: createAnnotationClassMutate } = useMutation(createAnnotationClass)
+  const { mutate: createAnnotationClassMutate } = useCreateAnnotationClass()
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value)
@@ -77,17 +75,30 @@ const CreateClassModal: FC<CreateClassModalProps> = ({ isOpen, onCancel, isTag }
         notes,
         color: colorVal,
         attributes: attrList,
-        text: isTextEnabled,
-        ID: isIDEnabled
+        hasText: isTextEnabled,
+        hasId: isIDEnabled
       },
       {
         onSuccess: (newClass) => {
-          addClass(newClass)
+          // Transform snake_case to camelCase for store
+          addClass({
+            id: newClass.id,
+            name: newClass.name,
+            color: newClass.color,
+            notes: newClass.notes || '',
+            attributes: newClass.attributes || [],
+            text: newClass.has_text || false,
+            ID: newClass.has_id || false,
+            orgId: newClass.org_id,
+            projectId: newClass.project_id,
+            createdAt: newClass.created_at || '',
+            modifiedAt: newClass.updated_at || newClass.created_at || ''
+          })
           onCancel()
         },
         onError(e) {
           let errorMessage = 'Failed to create class'
-          if (e instanceof AxiosError && e.response?.status === 400) {
+          if (e instanceof Error && e.message?.includes('duplicate')) {
             errorMessage = `Class with name "${name}" already exist`
           }
 

@@ -10,18 +10,20 @@ import { cn } from '@renderer/utils/cn'
 
 import {
   completeCommentFileUpload,
-  createComment,
   createCommentFileUploadUrl,
   uploadCommentFile
 } from '@renderer/helpers/axiosRequests'
+import { useCreateComment, commentsKeys } from '@/hooks/useComments'
 import { errorNotification, warningNotification } from '../common/Notification'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 import { useFilesStore } from '@renderer/store/files.store'
+import { useUserStore } from '@renderer/store/user.store'
 
 const AddComment: FC = () => {
   const orgId = useOrgStore((s) => s.selectedOrg)
   const { projectid: projectId } = useParams()
+  const user = useUserStore((s) => s.user)
 
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
@@ -34,13 +36,13 @@ const AddComment: FC = () => {
   const commentIdRef = useRef<string | null>(null)
 
   const queryClient = useQueryClient()
-  const { mutateAsync: createCommentMutate } = useMutation(createComment)
+  const { mutateAsync: createCommentMutate } = useCreateComment()
   const { mutateAsync: createCommentFileUploadUrlMutate } = useMutation(createCommentFileUploadUrl)
   const { mutateAsync: uploadFileMutate } = useMutation(uploadCommentFile)
   const { mutateAsync: completeFileUploadMutate } = useMutation(completeCommentFileUpload)
 
   const onCreateComment = useCallback(async () => {
-    if (!orgId || !projectId || !fileId) return
+    if (!orgId || !projectId || !fileId || !user) return
 
     if (content.trim().length === 0 && files.length === 0) {
       return
@@ -65,6 +67,7 @@ const AddComment: FC = () => {
         projectId,
         fileId,
         content,
+        userId: user.id,
         shapeId: shapeId || undefined
       })
       commentIdRef.current = createCommentData.id
@@ -120,9 +123,9 @@ const AddComment: FC = () => {
       commentIdRef.current = null
       setFiles([])
       setContent('')
-      queryClient.invalidateQueries(['comments'])
+      queryClient.invalidateQueries({ queryKey: commentsKeys.list(fileId) })
     }
-  }, [orgId, projectId, fileId, files, content])
+  }, [orgId, projectId, fileId, files, content, user])
 
   const deleteFile = (fileName: string) => {
     setFiles((v) => v.filter((f) => f.name !== fileName))

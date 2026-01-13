@@ -9,10 +9,10 @@ import {
 
 import * as FileService from '../modules/files/file.service'
 import * as ProjectService from '../modules/projects/project.service'
+import { ProjectType, StorageType as Storage } from '../modules/projects/project.service'
 import { FileTypesType } from '../modules/files/file.model'
 import path from 'path'
 import { CONSTANTS } from '../config/vars'
-import { ProjectType, Storage } from '../modules/projects/project.model'
 import logger from '../config/logger'
 
 const createCredentials = (account: string, passkey: string) => {
@@ -243,7 +243,7 @@ export const listBlobsAndCreateFiles = async (
   prefix?: string
 ) => {
   try {
-    await ProjectService.dbUpdateProject(projectJson.id, { isSyncing: true })
+    await ProjectService.dbUpdateProject(projectJson.id, { is_syncing: true })
 
     const client = createAzureClient(account, passkey)
     const containerClient = client.getContainerClient(containerName)
@@ -301,7 +301,7 @@ export const listBlobsAndCreateFiles = async (
           blobName: blobName,
           url: url,
           projectId: projectJson.id,
-          orgId: projectJson.orgId.toString(),
+          orgId: projectJson.org_id,
           storedIn: 'azure',
         })
       }
@@ -312,13 +312,13 @@ export const listBlobsAndCreateFiles = async (
     }
 
     await ProjectService.dbUpdateProject(projectJson.id, {
-      isSyncing: false,
-      syncedAt: new Date(),
+      is_syncing: false,
+      synced_at: new Date().toISOString(),
     })
   } catch (err) {
     logger.error(err)
     await ProjectService.dbUpdateProject(projectJson.id, {
-      isSyncing: false,
+      is_syncing: false,
     })
   }
 }
@@ -364,7 +364,7 @@ export const addAzureFilesToDb = async (
       blobName: blobName,
       url: url,
       projectId: projectJson.id,
-      orgId: projectJson.orgId.toString(),
+      orgId: projectJson.org_id,
       storedIn: 'azure',
     })
   }

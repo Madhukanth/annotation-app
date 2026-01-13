@@ -1,103 +1,124 @@
-import { hashPassword } from '../auth/auth.utils'
-import OrganizationModel from '../organizations/organization.model'
-import UserModel, { UserType } from './user.model'
+import { supabaseAdmin } from '../../config/supabase'
+import { DB_TABLES } from '../../config/vars'
 
-export const dbCreateUser = async (
-  newUser: Omit<Omit<UserType, 'id'>, '_id'>,
-  orgId: string
-) => {
-  const userDoc = await UserModel.create({
-    ...newUser,
-    email: newUser.email.toLowerCase(),
-  })
-  await OrganizationModel.findByIdAndUpdate(orgId, {
-    $push: { users: userDoc._id },
-  })
-  return userDoc
+export type UserType = {
+  id: string
+  name: string
+  email: string
+  role: 'superadmin' | 'orgadmin' | 'user'
 }
 
-export const dbFindUserById = async (userId: string) => {
-  const userDoc = await UserModel.findById(userId, {
-    name: 1,
-    email: 1,
-    role: 1,
-    id: 1,
-  })
-  return userDoc
+export const dbFindUserById = async (userId: string): Promise<UserType | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email, role')
+    .eq('id', userId)
+    .single()
+
+  if (error) return null
+  return data
 }
 
-export const dbFindUserByEmail = async (email: string) => {
-  const userDoc = await UserModel.findOne({ email: email.toLowerCase() })
-  return userDoc
+export const dbFindUserByEmail = async (email: string): Promise<UserType | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email, role')
+    .eq('email', email.toLowerCase())
+    .single()
+
+  if (error) return null
+  return data
 }
 
-export const dbSearchUsersBy = async (searchTerm?: string) => {
-  let query = {}
+export const dbSearchUsersBy = async (searchTerm?: string): Promise<UserType[]> => {
+  let query = supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email, role')
+    .limit(20)
+
   if (searchTerm) {
-    query = {
-      $or: [
-        { email: { $regex: searchTerm, $options: 'i' } },
-        { name: { $regex: searchTerm, $options: 'i' } },
-      ],
-    }
+    query = query.or(`email.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
   }
 
-  const userDocs = await UserModel.find(query, {
-    name: 1,
-    email: 1,
-    role: 1,
-  }).limit(20)
-  return userDocs
+  const { data, error } = await query
+
+  if (error) return []
+  return data
 }
 
-export const dbFindUsersByOrgId = async (orgId: string) => {
-  const orgDoc = await OrganizationModel.findById(orgId)
-  if (!orgDoc) return null
+export const dbFindUsersByOrgId = async (orgId: string): Promise<UserType[]> => {
+  // Get all users who are members of projects in this organization
+  const { data, error } = await supabaseAdmin
+    .rpc('get_users_in_organization', { p_org_id: orgId })
 
-  const users = []
-  for (const userId of orgDoc.toJSON().users) {
-    const user = await dbFindUserById(userId.toString())
-    if (user) {
-      users.push(user.toJSON())
-    }
+  if (error) {
+    console.error('Error fetching users by org:', error)
+    return []
   }
-  return users
+  return data || []
 }
 
 export const dbUpdateUserById = async (
   userId: string,
-  uData: Partial<UserType>
-) => {
-  if (uData.password) {
-    uData.password = await hashPassword(uData.password)
+  updateData: Partial<Omit<UserType, 'id'>> & { password?: string }
+): Promise<UserType | null> => {
+  const dataToUpdate: any = { ...updateData }
+
+  // Remove password from the update data - password changes go through Supabase Auth
+  if (dataToUpdate.password) {
+    // Update password in Supabase Auth
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { password: dataToUpdate.password }
+    )
+    if (authError) {
+      console.error('Failed to update password:', authError)
+    }
+    delete dataToUpdate.password
   }
 
-  if (uData.email) {
-    uData.email = uData.email.toLowerCase()
+  if (dataToUpdate.email) {
+    dataToUpdate.email = dataToUpdate.email.toLowerCase()
+    // Also update email in Supabase Auth
+    await supabaseAdmin.auth.admin.updateUserById(userId, {
+      email: dataToUpdate.email,
+    })
   }
 
-  const userDoc = await UserModel.findByIdAndUpdate({ _id: userId }, uData, {
-    new: true,
-  })
-  return userDoc?.toJSON()
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .update(dataToUpdate)
+    .eq('id', userId)
+    .select('id, name, email, role')
+    .single()
+
+  if (error) return null
+  return data
 }
 
-export const dbDeleteUserById = (userId: string) => {
-  const userDoc = UserModel.findByIdAndDelete(userId)
-  return userDoc
+export const dbDeleteUserById = async (userId: string): Promise<boolean> => {
+  // Delete from auth.users (cascades to public.users due to FK)
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+  return !error
 }
 
-export const dbGetAllSuperAdmins = async () => {
-  const userDocs = await UserModel.find(
-    { role: 'superadmin' },
-    { name: 1, email: 1, _id: 1 }
-  )
-  return userDocs
+export const dbGetAllSuperAdmins = async (): Promise<UserType[]> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.users)
+    .select('id, name, email, role')
+    .eq('role', 'superadmin')
+
+  if (error) return []
+  return data
 }
 
-export const dbGetOrgAdmin = async (orgId: string) => {
-  const orgDoc = await OrganizationModel.findById(orgId)
-  if (!orgDoc) return null
+export const dbGetOrgAdmin = async (orgId: string): Promise<string | null> => {
+  const { data, error } = await supabaseAdmin
+    .from(DB_TABLES.organizations)
+    .select('orgadmin_id')
+    .eq('id', orgId)
+    .single()
 
-  return orgDoc.toJSON().orgadmin
+  if (error) return null
+  return data.orgadmin_id
 }

@@ -8,11 +8,11 @@ import PlaybackRate from './PlaybackRate'
 import VideoTime from './VideoTime'
 import VideoSlider from './VideoSlider'
 import VideoFrame from './VideoFrame'
-import { VideoFileType } from '@models/File.model'
+import { VideoObjType } from '@models/File.model'
 
 type VideoControlsProps = {
   videoRef: RefObject<HTMLVideoElement>
-  videoObj: VideoFileType
+  videoObj: VideoObjType
   disableKeyShortcuts?: boolean
   miniControls?: boolean
   color?: string

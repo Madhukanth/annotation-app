@@ -9,7 +9,6 @@ import NextImage from '@renderer/pages/ImageAnnotate/NextImage'
 import { cn } from '@renderer/utils/cn'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useMutation } from '@tanstack/react-query'
-import { updateFileHeightWidth, updateFileTags } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import AnnotationClass from '@models/AnnotationClass.model'
 import SearchTags from './common/SearchTags'
@@ -18,6 +17,7 @@ import { BiX } from 'react-icons/bi'
 import Button from '@renderer/components/common/Button'
 import { useClassifyStore } from '@renderer/store/classify.store'
 import FileType from '@renderer/models/File.model'
+import { filesService } from '@/services/supabase'
 
 const ClassifyImage: FC = () => {
   const { projectid: projectId } = useParams()
@@ -30,12 +30,18 @@ const ClassifyImage: FC = () => {
   const fileId = fileObj?.id
   const files = useFilesStore((state) => state.files)
   const updateFile = useFilesStore((state) => state.updateFile)
-  const { mutate: updateFileTagsMutate } = useMutation(updateFileTags)
+  const { mutate: updateFileTagsMutate } = useMutation({
+    mutationFn: ({ fileId, tags }: { fileId: string; tags: string[] }) =>
+      filesService.updateFileTags(fileId, tags)
+  })
   const setSelectedFile = useFilesStore((s) => s.setSelectedFile)
   const currFileIdx = files.findIndex((f) => f.id === fileId)
   const [thumbFiles, setThumbFiles] = useState<FileType[]>([])
 
-  const fileUpdateMutation = useMutation({ mutationFn: updateFileHeightWidth })
+  const fileUpdateMutation = useMutation({
+    mutationFn: ({ fileId, width, height }: { fileId: string; width: number; height: number }) =>
+      filesService.updateFile(fileId, { width, height })
+  })
 
   useEffect(() => {
     if (!fileObj) return
@@ -56,11 +62,9 @@ const ClassifyImage: FC = () => {
   const onImageLoad: ReactEventHandler<HTMLImageElement> = (e) => {
     const img = e.target as HTMLImageElement
 
-    if (!orgId || !projectId || !fileId || !img) return
+    if (!fileId || !img) return
 
     fileUpdateMutation.mutate({
-      orgId,
-      projectId,
       fileId,
       width: img.naturalWidth,
       height: img.naturalHeight
@@ -70,11 +74,11 @@ const ClassifyImage: FC = () => {
   const updateTagsToDB = (fTags: AnnotationClass[]) => {
     setSelectedTag(fTags)
 
-    if (!orgId || !projectId || !fileId) return
+    if (!fileId) return
     updateFile(fileId, { tags: fTags, complete: false, skipped: false })
     setSelectedFile({ ...fileObj, tags: fTags, complete: false, skipped: false })
     const tagIdList = fTags.map((v) => v.id)
-    updateFileTagsMutate({ orgId, projectId, fileId, tags: tagIdList })
+    updateFileTagsMutate({ fileId, tags: tagIdList })
   }
 
   const onSelectTag = (tag: AnnotationClass) => {
@@ -106,7 +110,7 @@ const ClassifyImage: FC = () => {
           <img
             onLoad={onImageLoad}
             className="max-h-full max-w-full"
-            src={getStoredUrl(fileObj.url, fileObj.storedIn)}
+            src={fileObj.url}
             alt={fileObj.originalName}
           />
         </div>
@@ -173,7 +177,7 @@ const ClassifyImage: FC = () => {
                 {file.type === 'image' ? (
                   <img
                     className="w-20 object-cover  max-h-12 h-full rounded-sm"
-                    src={getStoredUrl(file.url, fileObj.storedIn)}
+                    src={file.url}
                     alt={file.originalName}
                   />
                 ) : (

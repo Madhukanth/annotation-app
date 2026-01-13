@@ -6,19 +6,18 @@ import Konva from 'konva'
 
 import PolygonType from '@models/Polygon.model'
 import PointType from '@models/Point.model'
-import VideoPolygonType from '@models/VideoPolygon.model'
 import { generateId } from '@renderer/utils/vars'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 
 type PolygonProps = {
   stageRef: RefObject<Konva.Stage>
-  shapeProps: PolygonType | VideoPolygonType
+  shapeProps: PolygonType
   isSelected: boolean
   isDrawing: true | string | null
   strokeWidth: number
   stroke: string
   onSelect: () => void
-  onChange: (shapeProps: PolygonType | VideoPolygonType) => void
+  onChange: (shapeProps: PolygonType) => void
   onPointClick: ({ polyId, pointId }: { polyId: string; pointId: string }) => void
   selectedPointId: string | null
   selectCommentTab: () => void
@@ -94,7 +93,7 @@ const Polygon: FC<PolygonProps> = ({
     e.target.position({ x: 0, y: 0 })
   }
 
-  const handleCircleDragEnd = (pointId) => (e: KonvaEventObject<DragEvent>) => {
+  const handleCircleDragEnd = (pointId: string) => (e: KonvaEventObject<DragEvent>) => {
     const newPoints = shapeProps.points.map((point) => {
       if (point.id !== pointId) return point
       return { ...point, x: e.target.x(), y: e.target.y() }

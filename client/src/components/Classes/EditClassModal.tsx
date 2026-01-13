@@ -1,18 +1,15 @@
 import { ChangeEvent, FC, KeyboardEventHandler, useEffect, useState } from 'react'
 import { IoMdCloseCircle } from 'react-icons/io'
 import { ChromePicker } from 'react-color'
-import { useMutation } from '@tanstack/react-query'
+import { useParams } from 'react-router-dom'
 
 import CustomModal from '../common/CustomModal'
 import Button from '../common/Button'
 import { errorNotification, warningNotification } from '../common/Notification'
 import { cn } from '@renderer/utils/cn'
-import { updateAnnotationClass } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
+import { useUpdateAnnotationClass } from '@/hooks/useAnnotationClasses'
 import AnnotationClass from '@models/AnnotationClass.model'
 import { useClassesStore } from '@renderer/store/classes.store'
-import { useParams } from 'react-router-dom'
-import { AxiosError } from 'axios'
 
 type EditClassModalProps = {
   isOpen: boolean
@@ -29,11 +26,10 @@ const EditClassModal: FC<EditClassModalProps> = ({ isOpen, onCancel, annotationC
   const [attrName, setAttrName] = useState('')
   const [colorVal, setColorVal] = useState('#1c827f')
   const [showColorPicker, setShowColorPicker] = useState(false)
-  const orgId = useOrgStore((s) => s.selectedOrg)
   const updateClass = useClassesStore((s) => s.updateClass)
   const { projectid: projectId } = useParams()
 
-  const { mutate: updateAnnotationClassMutate, isLoading } = useMutation(updateAnnotationClass)
+  const { mutate: updateAnnotationClassMutate, isLoading } = useUpdateAnnotationClass()
 
   useEffect(() => {
     setName(annotationClass.name)
@@ -82,27 +78,36 @@ const EditClassModal: FC<EditClassModalProps> = ({ isOpen, onCancel, annotationC
   }
 
   const handleUpdate = () => {
-    if (!orgId || !projectId) return
+    if (!projectId) return
     updateAnnotationClassMutate(
       {
-        id: annotationClass.id,
-        orgId,
-        projectId,
-        name,
-        notes,
-        color: colorVal,
-        attributes: attrList,
-        text: isTextEnabled,
-        ID: isIDEnabled
+        classId: annotationClass.id,
+        input: {
+          name,
+          notes,
+          color: colorVal,
+          attributes: attrList,
+          hasText: isTextEnabled,
+          hasId: isIDEnabled
+        }
       },
       {
         onSuccess: (uClass) => {
-          updateClass(uClass.id, { ...uClass })
+          // Transform snake_case to camelCase for store
+          updateClass(uClass.id, {
+            id: uClass.id,
+            name: uClass.name,
+            color: uClass.color,
+            notes: uClass.notes || '',
+            attributes: uClass.attributes || [],
+            text: uClass.has_text || false,
+            ID: uClass.has_id || false
+          })
           onCancel()
         },
         onError(e) {
           let errorMessage = 'Failed to update the class'
-          if (e instanceof AxiosError && e.response?.status === 400) {
+          if (e instanceof Error && e.message?.includes('duplicate')) {
             errorMessage = `Class with name "${name}" already exist`
           }
 

@@ -15,7 +15,7 @@ export const createOrganizationController = async (
       name,
       orgadmin
     )
-    return res.status(httpStatus.CREATED).json(orgDoc.toJSON())
+    return res.status(httpStatus.CREATED).json(orgDoc)
   } catch (err) {
     next(err)
   }
@@ -29,8 +29,7 @@ export const gerOrganizationController = async (
   try {
     const { userid: userId } = req.query
     const orgDocs = await OrganizationService.dbGetOrganizations(userId)
-    const orgs = orgDocs.map((orgDoc) => orgDoc.toJSON())
-    return res.status(httpStatus.OK).json(orgs)
+    return res.status(httpStatus.OK).json(orgDocs)
   } catch (err) {
     next(err)
   }

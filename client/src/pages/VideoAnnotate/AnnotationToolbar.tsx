@@ -4,7 +4,7 @@ import { BsCircle, BsSquare, BsHexagon } from 'react-icons/bs'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
-import { createShape } from '@renderer/helpers/axiosRequests'
+import { shapesService, CreateShapeInput } from '@/services/supabase'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { generateId } from '@renderer/utils/vars'
 import Tooltip from '@renderer/components/common/Tooltip'
@@ -41,7 +41,9 @@ const AnnotationToolbar: FC<AnnotationToolbarProps> = ({
   const isDrawingLine = useUntrackedVideoStore((s) => s.isDrawingLine)
   const setIsDrawingLine = useUntrackedVideoStore((s) => s.setIsDrawingLine)
 
-  const { mutate: createShapeMutate } = useMutation(createShape)
+  const { mutate: createShapeMutate } = useMutation({
+    mutationFn: (input: CreateShapeInput) => shapesService.createShape(input)
+  })
 
   const getScale = () => {
     const imgEle = videoRef.current
@@ -77,24 +79,19 @@ const AnnotationToolbar: FC<AnnotationToolbarProps> = ({
 
     if (!orgId || !projectId || !fileId) return
     createShapeMutate({
+      id: newRect.id,
+      fileId,
       orgId,
       projectId,
-      fileId,
-      shape: {
-        ...newRect,
-        x: newRect.x / scaleX,
-        y: newRect.y / scaleY,
-        height: newRect.height / scaleY,
-        width: newRect.width / scaleX,
-        stroke: 'rgb(255, 0, 0)',
-        strokeWidth: 2,
-        color: 'rgb(255, 0, 0)',
-        type: 'rectangle',
-        orgId,
-        projectId,
-        fileId,
-        atFrame: calculateCurrentFrame()
-      }
+      type: 'rectangle',
+      name: newRect.name,
+      notes: newRect.notes,
+      x: newRect.x / scaleX,
+      y: newRect.y / scaleY,
+      height: newRect.height / scaleY,
+      width: newRect.width / scaleX,
+      strokeWidth: 2,
+      atFrame: calculateCurrentFrame()
     })
   }
 
@@ -123,24 +120,19 @@ const AnnotationToolbar: FC<AnnotationToolbarProps> = ({
 
     if (!orgId || !projectId || !fileId) return
     createShapeMutate({
+      id: newCircle.id,
+      fileId,
       orgId,
       projectId,
-      fileId,
-      shape: {
-        ...newCircle,
-        x: newCircle.x / scaleX,
-        y: newCircle.y / scaleY,
-        height: newCircle.height / scaleY,
-        width: newCircle.width / scaleX,
-        stroke: 'rgb(255, 0, 0)',
-        strokeWidth: 2,
-        color: 'rgb(255, 0, 0)',
-        type: 'circle',
-        orgId,
-        projectId,
-        fileId,
-        atFrame: calculateCurrentFrame()
-      }
+      type: 'circle',
+      name: newCircle.name,
+      notes: newCircle.notes,
+      x: newCircle.x / scaleX,
+      y: newCircle.y / scaleY,
+      height: newCircle.height / scaleY,
+      width: newCircle.width / scaleX,
+      strokeWidth: 2,
+      atFrame: calculateCurrentFrame()
     })
   }
 

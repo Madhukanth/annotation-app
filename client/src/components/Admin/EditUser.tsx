@@ -1,13 +1,13 @@
 import { useFormik } from 'formik'
 import { SingleValue } from 'react-select'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { UserRoleType, UserType } from '@renderer/store/user.store'
 import CustomSelect from '../common/Select'
-import { updateUser } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { FC, useEffect } from 'react'
 import { errorNotification } from '../common/Notification'
+import { useUpdateUser } from '@/hooks/useUsers'
 
 type EditUserFormikType = {
   name: string
@@ -20,9 +20,7 @@ const DUMMY_PASSWORD = '*******'
 const EditUser: FC<{ handleClose: () => void; user: UserType }> = ({ user, handleClose }) => {
   const queryClient = useQueryClient()
   const orgId = useOrgStore((s) => s.selectedOrg)
-  const registerUserMutation = useMutation({
-    mutationFn: updateUser
-  })
+  const updateUserMutation = useUpdateUser()
 
   const formik = useFormik<EditUserFormikType>({
     initialValues: { email: '', password: '', name: '', role: 'user' },
@@ -30,13 +28,11 @@ const EditUser: FC<{ handleClose: () => void; user: UserType }> = ({ user, handl
       if (!orgId) return
 
       const { password, ...rest } = values
-      registerUserMutation.mutate(
+      updateUserMutation.mutate(
         {
           userId: user.id,
-          updateData: {
+          input: {
             ...rest,
-            orgId,
-            ...(password !== DUMMY_PASSWORD && { password: password })
           }
         },
         {
@@ -44,7 +40,7 @@ const EditUser: FC<{ handleClose: () => void; user: UserType }> = ({ user, handl
             formik.resetForm({
               values: { email: '', password: DUMMY_PASSWORD, name: '', role: 'user' }
             })
-            queryClient.invalidateQueries({ queryKey: ['users', { orgId }] })
+            queryClient.invalidateQueries({ queryKey: ['users'] })
             handleClose()
           },
           onError() {
@@ -147,7 +143,7 @@ const EditUser: FC<{ handleClose: () => void; user: UserType }> = ({ user, handl
             </button>
 
             <button
-              disabled={registerUserMutation.isLoading}
+              disabled={updateUserMutation.isLoading}
               className="w-1/2 mt-12 bg-brand text-white text-base p-2 rounded-md disabled:opacity-50"
               type="submit"
             >

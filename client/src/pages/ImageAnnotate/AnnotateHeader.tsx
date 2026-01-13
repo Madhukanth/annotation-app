@@ -4,38 +4,37 @@ import { BsFillCheckCircleFill } from 'react-icons/bs'
 
 import Button from '@renderer/components/common/Button'
 import { useProjectStore } from '@renderer/store/project.store'
-import { useMutation } from '@tanstack/react-query'
-import { updateFileCompleteStatus } from '@renderer/helpers/axiosRequests'
+import { useUpdateFile } from '@/hooks/useFiles'
 import { useFilesStore } from '@renderer/store/files.store'
-import { useOrgStore } from '@renderer/store/organization.store'
 import { errorNotification } from '@renderer/components/common/Notification'
 
 const AnnotateHeader: FC = () => {
   const { projectid: projectId } = useParams()
-  const selectedOrg = useOrgStore((s) => s.selectedOrg)
   const getProjectById = useProjectStore((s) => s.getProjectById)
-  const updateFile = useFilesStore((s) => s.updateFile)
+  const updateFileStore = useFilesStore((s) => s.updateFile)
 
   const project = getProjectById(projectId || '')
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
 
-  const { mutate: completeFileMutate, isLoading } = useMutation(updateFileCompleteStatus, {
-    onSuccess(_data, { complete }) {
-      updateFile(fileId!, { complete })
-    },
-    onError() {
-      errorNotification('Failed to update')
-    }
-  })
+  const { mutate: completeFileMutate, isLoading: isLoading } = useUpdateFile()
 
   const handleComplete = (status: boolean) => {
-    completeFileMutate({
-      orgId: selectedOrg!,
-      projectId: projectId!,
-      fileId: fileId!,
-      complete: status
-    })
+    if (!fileId) return
+    completeFileMutate(
+      {
+        fileId: fileId,
+        input: { complete: status }
+      },
+      {
+        onSuccess() {
+          updateFileStore(fileId, { complete: status })
+        },
+        onError() {
+          errorNotification('Failed to update')
+        }
+      }
+    )
   }
 
   return (

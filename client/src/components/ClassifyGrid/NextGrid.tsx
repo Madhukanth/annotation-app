@@ -6,15 +6,12 @@ import { warningNotification } from '@renderer/components/common/Notification'
 import { useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useClassifyStore } from '@renderer/store/classify.store'
 import { groupIntoChunks } from '@renderer/utils/vars'
-import { useOrgStore } from '@renderer/store/organization.store'
-import { useMutation } from '@tanstack/react-query'
-import { updateFileListTag } from '@renderer/helpers/axiosRequests'
+import { useUpdateMultipleFileTags } from '@/hooks/useFiles'
 
 const NextGrid: FC = () => {
   const files = useFilesStore((state) => state.files)
   const count = useFilesStore((state) => state.count)
 
-  const orgId = useOrgStore((state) => state.selectedOrg)
   const { projectid: projectId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const complete = searchParams.get('complete')
@@ -39,7 +36,7 @@ const NextGrid: FC = () => {
   const gridIdx = gridSkip / gridSize
   const nextChunk = gridChunks[gridIdx + 1]
 
-  const { mutate: updateFileListTagMutate } = useMutation(updateFileListTag)
+  const { mutate: updateFileListTagMutate } = useUpdateMultipleFileTags()
 
   const handleNext = async () => {
     const inCompleteImages = gridItems.filter((f) => !f.complete && !f.skipped)
@@ -49,10 +46,8 @@ const NextGrid: FC = () => {
     }
 
     const noTagImages = gridItems.filter((f) => !f.tags || f.tags.length === 0)
-    if (orgId && projectId) {
+    if (projectId && noTagImages.length > 0) {
       updateFileListTagMutate({
-        orgId,
-        projectId,
         fileIds: noTagImages.map((i) => i.id),
         tagIds: []
       })

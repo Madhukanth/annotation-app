@@ -5,10 +5,18 @@ import ago from 's-ago'
 
 import CommentType from '@models/Comment.model'
 import { fetchCommentFiles } from '@renderer/helpers/axiosRequests'
-import { useOrgStore } from '@renderer/store/organization.store'
 import { getStoredUrl } from '@renderer/utils/vars'
 import { cn } from '@renderer/utils/cn'
 import { useFilesStore } from '@renderer/store/files.store'
+import { useOrgStore } from '@renderer/store/organization.store'
+
+import { Storage } from '@models/Project.model'
+
+type CommentFileType = {
+  id: string
+  url: string
+  storedIn: Storage
+}
 
 type CommentCardProps = { comment: CommentType }
 const CommentCard: FC<CommentCardProps> = ({ comment }) => {
@@ -16,12 +24,11 @@ const CommentCard: FC<CommentCardProps> = ({ comment }) => {
   const { projectid: projectId } = useParams()
   const fileObj = useFilesStore((s) => s.selectedFile)
   const fileId = fileObj?.id
-  const { data: commentFiles } = useQuery(
-    [
-      'comment-files',
-      { orgId: orgId!, projectId: projectId!, fileId: fileId!, commentId: comment.id }
-    ],
-    fetchCommentFiles,
+
+  // Comment files functionality - keeping axios for now as this needs a separate service
+  const { data: commentFiles = [] } = useQuery<CommentFileType[]>(
+    ['comment-files', { fileId: fileId!, commentId: comment.id }],
+    () => fetchCommentFiles({ orgId: orgId!, projectId: projectId!, fileId: fileId!, commentId: comment.id }),
     { initialData: [], enabled: !!orgId && !!projectId && !!fileId }
   )
 

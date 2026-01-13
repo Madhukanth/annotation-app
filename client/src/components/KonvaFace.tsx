@@ -6,21 +6,19 @@ import { KonvaEventObject } from 'konva/lib/Node'
 
 import PointType from '@models/Point.model'
 import FaceType from '@models/Face.model'
-import VideoFaceType from '@models/VideoFace.model'
 import Konva from 'konva'
 import { generateId } from '@renderer/utils/vars'
-import KonvaChat from './KonvaChat'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 
 type KonvaFaceProps = {
   stageRef: RefObject<Konva.Stage>
-  shapeProps: FaceType | VideoFaceType
+  shapeProps: FaceType
   isSelected: boolean
   strokeWidth: number
   stroke: string
   selectCommentTab: () => void
   onSelect: () => void
-  onChange: (shapeProps: FaceType | VideoFaceType) => void
+  onChange: (shapeProps: FaceType) => void
 }
 
 const KonvaFace: FC<KonvaFaceProps> = ({
@@ -131,7 +129,7 @@ const KonvaFace: FC<KonvaFaceProps> = ({
     e.target.position({ x: 0, y: 0 })
   }
 
-  const handleCircleDragEnd = (pointId) => (e: KonvaEventObject<DragEvent>) => {
+  const handleCircleDragEnd = (pointId: string) => (e: KonvaEventObject<DragEvent>) => {
     const newPoints = shapeProps.points.map((point) => {
       if (point.id !== pointId) return point
       return { ...point, x: e.target.x(), y: e.target.y() }
@@ -198,8 +196,6 @@ const KonvaFace: FC<KonvaFaceProps> = ({
       allPoints[27]
     ]
   }
-
-  const firstPoint = shapeProps.points[0]
 
   return (
     <Fragment>
