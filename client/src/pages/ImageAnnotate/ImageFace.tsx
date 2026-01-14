@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 
 import FaceType from '@models/Face.model'
 import PointType from '@models/Point.model'
-import KonvaFace from '@renderer/components/KonvaFace'
+import KonvaFace from '@/components/shapes/konva/KonvaFace'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { shapesService, UpdateShapeInput } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'

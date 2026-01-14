@@ -1,8 +1,8 @@
 import { FC } from 'react'
 import { Link } from 'react-router-dom'
 
-import LoginForm from '@renderer/components/LoginForm'
-import AuthBackground from '@renderer/components/common/AuthBackground'
+import LoginForm from '@/components/auth/LoginForm'
+import AuthBackground from '@/components/auth/AuthBackground'
 
 const Login: FC = () => {
   return (

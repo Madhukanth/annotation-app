@@ -2,7 +2,7 @@ import { FC, Fragment, RefObject } from 'react'
 import Konva from 'konva'
 import { useMutation } from '@tanstack/react-query'
 
-import Polygon from '@renderer/components/KonvaPolygon'
+import Polygon from '@/components/shapes/konva/KonvaPolygon'
 import PolygonType from '@models/Polygon.model'
 import { shapesService } from '@/services/supabase'
 import PointType from '@models/Point.model'

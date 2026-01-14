@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FC, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 
-import Pagination from '@renderer/components/common/Pagination'
+import Pagination from '@/components/ui/Pagination'
 import { filesService } from '@/services/supabase'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useOrgStore } from '@renderer/store/organization.store'

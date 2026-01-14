@@ -14,7 +14,7 @@ import {
   uploadCommentFile
 } from '@renderer/helpers/axiosRequests'
 import { useCreateComment, commentsKeys } from '@/hooks/useComments'
-import { errorNotification, warningNotification } from '../common/Notification'
+import { errorNotification, warningNotification } from '@/components/ui/Notification'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useImageUntrackedStore } from '@renderer/pages/ImageAnnotate/store/image.store'
 import { useFilesStore } from '@renderer/store/files.store'

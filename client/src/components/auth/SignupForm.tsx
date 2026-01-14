@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@renderer/lib/supabase'
 import { useUserStore } from '@renderer/store/user.store'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { errorNotification, successNotification } from './common/Notification'
+import { errorNotification, successNotification } from '@/components/ui/Notification'
 
 type SignupFormikType = {
   name: string

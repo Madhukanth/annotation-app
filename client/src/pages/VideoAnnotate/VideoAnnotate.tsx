@@ -8,7 +8,7 @@ import { useMutation } from '@tanstack/react-query'
 
 import { cn } from '@renderer/utils/cn'
 import PolygonType from '@models/Polygon.model'
-import AddNameModal from '@renderer/components/AddNameModal'
+import AddNameModal from '@/components/modals/AddNameModal'
 import PointType from '@models/Point.model'
 import { ANNOTATIONLIST_WIDTH, ANNOTATION_TOOLBAR_WIDTH } from '@renderer/constants'
 import { generateId, getStoredUrl } from '@renderer/utils/vars'

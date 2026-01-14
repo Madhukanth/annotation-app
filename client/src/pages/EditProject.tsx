@@ -17,9 +17,9 @@ import {
   errorNotification,
   successNotification,
   warningNotification
-} from '@renderer/components/common/Notification'
+} from '@/components/ui/Notification'
 import { useNavigate, useParams } from 'react-router-dom'
-import Button from '@renderer/components/common/Button'
+import Button from '@/components/ui/Button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { FileTypesType } from '@models/File.model'
 // import { VideoMetadataModel } from '@models/video_metadata.model'

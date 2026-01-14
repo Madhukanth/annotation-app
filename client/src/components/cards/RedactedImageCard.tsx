@@ -3,7 +3,7 @@ import { Layer, Stage } from 'react-konva'
 import { Link } from 'react-router-dom'
 import { Stage as StageType } from 'konva/lib/Stage'
 
-import SimplePolygon from '@renderer/components/SimplePolygon'
+import SimplePolygon from '@/components/shapes/simple/SimplePolygon'
 import PolygonType from '@models/Polygon.model'
 import { ImageModel } from '@models/image.model'
 import PointType from '@models/Point.model'

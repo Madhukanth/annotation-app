@@ -7,8 +7,8 @@ import 'react-loading-skeleton/dist/skeleton.css'
 import 'react-date-picker/dist/DatePicker.css'
 import 'react-calendar/dist/Calendar.css'
 
-import '@renderer/assets/index.css'
-import App from '@renderer/App'
+import '@/styles/index.css'
+import App from '@/App'
 
 const queryClient = new QueryClient({
   defaultOptions: {

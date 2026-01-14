@@ -13,9 +13,9 @@ import {
   errorNotification,
   successNotification,
   warningNotification
-} from '@renderer/components/common/Notification'
-import Button from '@renderer/components/common/Button'
-import CustomSelect from '@renderer/components/common/Select'
+} from '@/components/ui/Notification'
+import Button from '@/components/ui/Button'
+import CustomSelect from '@/components/ui/Select'
 import { SelectOption } from '@models/UI.model'
 import { StorageType, TaskType, FileType } from '@/lib/supabase'
 import { projectsService, filesService, storageService } from '@/services/supabase'

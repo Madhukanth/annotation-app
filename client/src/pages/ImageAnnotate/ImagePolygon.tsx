@@ -3,7 +3,7 @@ import Konva from 'konva'
 import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
-import Polygon from '@renderer/components/KonvaPolygon'
+import Polygon from '@/components/shapes/konva/KonvaPolygon'
 import PolygonType from '@models/Polygon.model'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { shapesService, UpdateShapeInput } from '@/services/supabase'

@@ -4,9 +4,9 @@ import { SingleValue } from 'react-select'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { UserRoleType } from '@renderer/store/user.store'
-import CustomSelect from '../common/Select'
+import CustomSelect from '@/components/ui/Select'
 import { useOrgStore } from '@renderer/store/organization.store'
-import { errorNotification } from '../common/Notification'
+import { errorNotification } from '@/components/ui/Notification'
 import { useCreateUser } from '@/hooks/useUsers'
 
 type AddUserFormikType = {

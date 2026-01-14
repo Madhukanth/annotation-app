@@ -3,9 +3,9 @@ import { cn } from '@renderer/utils/cn'
 import { useParams } from 'react-router-dom'
 
 import { HEADER_HEIGHT, SIDEBAR_WIDTH } from '@renderer/constants'
-import HeaderCore from '@renderer/components/Header/HeaderCore'
-import SidebarCore from '@renderer/components/Sidebar/SidebarCore'
-import ProjectSidebar from '@renderer/components/Sidebar/ProjectSidebar'
+import HeaderCore from '@/components/layout/HeaderCore'
+import SidebarCore from '@/components/layout/SidebarCore'
+import ProjectSidebar from '@/components/layout/ProjectSidebar'
 import { IoClose } from 'react-icons/io5'
 import { HiMenu } from 'react-icons/hi'
 

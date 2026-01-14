@@ -2,8 +2,8 @@ import { FC, useState } from 'react'
 
 import FileType from '@models/File.model'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
-import CustomModal from '@renderer/components/common/CustomModal'
-import ConfirmDelete from '@renderer/components/common/ConfirmDelete'
+import CustomModal from '@/components/ui/CustomModal'
+import ConfirmDelete from '@/components/ui/ConfirmDelete'
 
 type AnnotateCardProps = {
   skip: number

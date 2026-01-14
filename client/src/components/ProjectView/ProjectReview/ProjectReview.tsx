@@ -4,17 +4,17 @@ import { useQuery } from '@tanstack/react-query'
 import ReviewCard from './ReviewCard'
 import { useFilesStore } from '@renderer/store/files.store'
 import * as filesService from '@/services/supabase/files.service'
-import Pagination from '@renderer/components/common/Pagination'
-import CardSkeleton from '@renderer/components/common/CardSkeleton'
+import Pagination from '@/components/ui/Pagination'
+import CardSkeleton from '@/components/ui/CardSkeleton'
 import { SelectOption } from '@models/UI.model'
 import AnnotationClass from '@renderer/models/AnnotationClass.model'
 import { useParams } from 'react-router-dom'
 import { MultiValue } from 'react-select'
 import { BiX } from 'react-icons/bi'
-import Button from '@renderer/components/common/Button'
-import CustomSelect from '@renderer/components/common/Select'
-import SearchAndSelectTags from '@renderer/components/common/SearchAndSelectTags'
-import SearchAndSelectUsers from '@renderer/components/common/SearchUsers'
+import Button from '@/components/ui/Button'
+import CustomSelect from '@/components/ui/Select'
+import SearchAndSelectTags from '@/components/ui/SearchAndSelectTags'
+import SearchAndSelectUsers from '@/components/ui/SearchUsers'
 import DatePicker from 'react-date-picker'
 import { useProjectStore } from '@renderer/store/project.store'
 import { transformFileToLegacy } from '@/utils/transformers'
@@ -229,7 +229,6 @@ const ProjectReview: FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-max overflow-scroll">
           {data.files.map((file) => {
-            console.log(file)
             // Cast to AnnotationType for image files (ReviewCard expects array-based metadata)
             const metadata = file.metadata as AnnotationType | undefined
             return (

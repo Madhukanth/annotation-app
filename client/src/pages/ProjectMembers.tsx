@@ -7,19 +7,19 @@ import { revertImages } from '@renderer/helpers/axiosRequests'
 import { InviteRoleType, UserType, inviteRoles, useUserStore } from '@renderer/store/user.store'
 import { useProjectUsers } from '@/hooks/useUsers'
 import { supabase } from '@/lib/supabase'
-import Button from '@renderer/components/common/Button'
+import Button from '@/components/ui/Button'
 import { useOrgStore } from '@renderer/store/organization.store'
 import {
   errorNotification,
   successNotification,
   warningNotification
-} from '@renderer/components/common/Notification'
-import SearchAndSelectUsers from '@renderer/components/common/SearchUsers'
-import CustomSelect from '@renderer/components/common/Select'
+} from '@/components/ui/Notification'
+import SearchAndSelectUsers from '@/components/ui/SearchUsers'
+import CustomSelect from '@/components/ui/Select'
 import { SelectOption } from '@models/UI.model'
-import CustomModal from '@renderer/components/common/CustomModal'
-import ConfirmDelete from '@renderer/components/common/ConfirmDelete'
-import ConfirmMessage from '@renderer/components/common/ConfirmMessage'
+import CustomModal from '@/components/ui/CustomModal'
+import ConfirmDelete from '@/components/ui/ConfirmDelete'
+import ConfirmMessage from '@/components/ui/ConfirmMessage'
 import { useProjectStore } from '@renderer/store/project.store'
 import { useParams } from 'react-router-dom'
 

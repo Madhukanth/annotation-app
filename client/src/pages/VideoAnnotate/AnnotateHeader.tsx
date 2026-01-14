@@ -2,12 +2,12 @@ import { FC } from 'react'
 import { useParams } from 'react-router-dom'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 
-import Button from '@renderer/components/common/Button'
+import Button from '@/components/ui/Button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { useMutation } from '@tanstack/react-query'
 import { filesService } from '@/services/supabase'
 import { useFilesStore } from '@renderer/store/files.store'
-import { errorNotification } from '@renderer/components/common/Notification'
+import { errorNotification } from '@/components/ui/Notification'
 
 const AnnotateHeader: FC = () => {
   const { projectid: projectId } = useParams()

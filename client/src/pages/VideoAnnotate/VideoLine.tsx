@@ -2,7 +2,7 @@ import { FC, Fragment, RefObject } from 'react'
 import Konva from 'konva'
 import { useMutation } from '@tanstack/react-query'
 
-import KonvaLine from '@renderer/components/KonvaLine'
+import KonvaLine from '@/components/shapes/konva/KonvaLine'
 import LineType from '@models/Line.model'
 import { shapesService } from '@/services/supabase'
 import PointType from '@models/Point.model'

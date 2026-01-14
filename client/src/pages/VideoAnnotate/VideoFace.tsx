@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 
 import FaceType from '@models/Face.model'
 import PointType from '@models/Point.model'
-import KonvaFace from '@renderer/components/KonvaFace'
+import KonvaFace from '@/components/shapes/konva/KonvaFace'
 import { shapesService } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'
 import { useUntrackedVideoStore, useVideoPlayerStore, useVideoStore } from './store/video.store'

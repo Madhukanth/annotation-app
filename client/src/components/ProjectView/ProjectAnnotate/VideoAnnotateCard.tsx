@@ -2,7 +2,7 @@ import { FC, useRef } from 'react'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 
 import FileType from '@models/File.model'
-import OutlineButton from '@renderer/components/common/OutlineButton'
+import OutlineButton from '@/components/ui/OutlineButton'
 import { getStoredUrl } from '@renderer/utils/vars'
 import VideoControls from '@renderer/pages/VideoAnnotate/VideoControls/VideoControls'
 import { useOrgStore } from '@renderer/store/organization.store'

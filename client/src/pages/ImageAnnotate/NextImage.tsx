@@ -3,7 +3,7 @@ import { useHotkeys } from 'react-hotkeys-hook'
 
 import { useFilesStore } from '@renderer/store/files.store'
 import { useImageUntrackedStore } from './store/image.store'
-import { warningNotification } from '@renderer/components/common/Notification'
+import { warningNotification } from '@/components/ui/Notification'
 import { useLocation, useSearchParams } from 'react-router-dom'
 
 const NextImage: FC = () => {

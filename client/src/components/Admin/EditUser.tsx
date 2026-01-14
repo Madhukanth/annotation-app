@@ -3,10 +3,10 @@ import { SingleValue } from 'react-select'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { UserRoleType, UserType } from '@renderer/store/user.store'
-import CustomSelect from '../common/Select'
+import CustomSelect from '@/components/ui/Select'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { FC, useEffect } from 'react'
-import { errorNotification } from '../common/Notification'
+import { errorNotification } from '@/components/ui/Notification'
 import { useUpdateUser } from '@/hooks/useUsers'
 
 type EditUserFormikType = {

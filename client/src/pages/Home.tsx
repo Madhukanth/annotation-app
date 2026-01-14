@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom'
 
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
-import Loader from '@renderer/components/common/Loader'
+import Loader from '@/components/ui/Loader'
 
 const Home = () => {
   const user = useUserStore((s) => s.user)

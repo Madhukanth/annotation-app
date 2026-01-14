@@ -2,7 +2,7 @@ import { FC } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 
 import { useFilesStore } from '@renderer/store/files.store'
-import { warningNotification } from '@renderer/components/common/Notification'
+import { warningNotification } from '@/components/ui/Notification'
 import { useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useClassifyStore } from '@renderer/store/classify.store'
 import { groupIntoChunks } from '@renderer/utils/vars'

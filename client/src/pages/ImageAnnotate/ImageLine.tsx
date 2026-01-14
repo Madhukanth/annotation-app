@@ -3,7 +3,7 @@ import Konva from 'konva'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
-import KonvaLine from '@renderer/components/KonvaLine'
+import KonvaLine from '@/components/shapes/konva/KonvaLine'
 import LineType from '@models/Line.model'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { shapesService, UpdateShapeInput } from '@/services/supabase'

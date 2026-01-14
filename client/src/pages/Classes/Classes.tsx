@@ -2,7 +2,7 @@ import { FC, useEffect, useState } from 'react'
 import { FiPlus } from 'react-icons/fi'
 import { useParams } from 'react-router-dom'
 
-import Button from '@renderer/components/common/Button'
+import Button from '@/components/ui/Button'
 import CreateClassModal from '@renderer/components/Classes/CreateClassModal'
 import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 import AnnotationClass from '@models/AnnotationClass.model'
@@ -10,7 +10,7 @@ import EditClassModal from '@renderer/components/Classes/EditClassModal'
 import ClassCard from '@renderer/components/Classes/ClassCard'
 import { useClassesStore } from '@renderer/store/classes.store'
 import { useProjectStore } from '@renderer/store/project.store'
-import CardSkeleton from '@renderer/components/common/CardSkeleton'
+import CardSkeleton from '@/components/ui/CardSkeleton'
 
 const Classes: FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)

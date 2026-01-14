@@ -1,7 +1,7 @@
 import { FC } from 'react'
 
 import { SIDEBAR_WIDTH } from '@renderer/constants'
-import SidebarCore from '@renderer/components/Sidebar/SidebarCore'
+import SidebarCore from '@/components/layout/SidebarCore'
 
 const SidebarLayout: FC = () => {
   return (

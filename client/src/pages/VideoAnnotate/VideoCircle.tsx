@@ -1,7 +1,7 @@
 import { FC, Fragment } from 'react'
 import { useMutation } from '@tanstack/react-query'
 
-import KonvaCircle from '@renderer/components/KonvaCircle'
+import KonvaCircle from '@/components/shapes/konva/KonvaCircle'
 import CircleType from '@models/Circle.model'
 import { shapesService } from '@/services/supabase'
 import ImgSize from '@models/ImgSize.model'

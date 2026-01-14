@@ -2,7 +2,7 @@ import { FC, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 
-import KonvaRectangle from '@renderer/components/KonvaRectangle'
+import KonvaRectangle from '@/components/shapes/konva/KonvaRectangle'
 import RectangleType from '@models/Rectangle.model'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { shapesService, UpdateShapeInput } from '@/services/supabase'
@@ -10,7 +10,7 @@ import ImgSize from '@models/ImgSize.model'
 import { useFilesStore } from '@renderer/store/files.store'
 import { ShapeType } from '@models/Shape.model'
 import { useImageStore, useImageUntrackedStore } from './store/image.store'
-import SimpleRectangle from '@renderer/components/SimpleRectangle'
+import SimpleRectangle from '@/components/shapes/simple/SimpleRectangle'
 
 type ImageRectanglesProps = { imgSize: ImgSize; selectCommentTab: () => void }
 const ImageRectangles: FC<ImageRectanglesProps> = ({ imgSize, selectCommentTab }) => {

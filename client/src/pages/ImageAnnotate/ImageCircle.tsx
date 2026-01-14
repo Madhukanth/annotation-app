@@ -2,7 +2,7 @@ import { FC, Fragment } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 
-import KonvaCircle from '@renderer/components/KonvaCircle'
+import KonvaCircle from '@/components/shapes/konva/KonvaCircle'
 import CircleType from '@models/Circle.model'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { shapesService, UpdateShapeInput } from '@/services/supabase'

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { supabase } from '@renderer/lib/supabase'
 import { useUserStore } from '@renderer/store/user.store'
-import { errorNotification } from './common/Notification'
+import { errorNotification } from '@/components/ui/Notification'
 import { useOrgStore } from '@renderer/store/organization.store'
 
 type LoginFormikType = {

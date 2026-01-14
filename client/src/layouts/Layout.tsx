@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 
 import { HEADER_HEIGHT } from '@renderer/constants'
 import HeaderLayout from './HeaderLayout'
-import LoadData from '@renderer/components/LoadData'
+import LoadData from '@/components/modals/LoadData'
 
 const Layout: FC = () => {
   const { orgid: orgId } = useParams()

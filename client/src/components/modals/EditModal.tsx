@@ -1,18 +1,20 @@
-import { ChangeEvent, FC, useEffect, useState } from 'react'
+import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react'
 
-import CustomModal from '@renderer/components/common/CustomModal'
+import CustomModal from '@/components/ui/CustomModal'
 import { useClassesStore } from '@renderer/store/classes.store'
-import CustomSelect from './common/Select'
+import CustomSelect from '@/components/ui/Select'
 import { useParams } from 'react-router-dom'
-import AnnotationClass from '@renderer/models/AnnotationClass.model'
 import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 
-type AddNameModalProps = {
-  initName: string
+type EditModalProps = {
   isOpen: boolean
-  selectedClass: AnnotationClass | null
+  name: string
+  notes: string
+  title: string
+  shapeId?: string
+  onAddPoints?: (polyId: string) => void
   onCancel: () => void
-  onAdd: (
+  onEdit: (
     name: string,
     notes: string,
     classId?: string,
@@ -21,18 +23,29 @@ type AddNameModalProps = {
     ID?: string,
     color?: string
   ) => void
+  classId?: string
+  attribute?: string
+  text?: string
+  ID?: string
 }
-const AddNameModal: FC<AddNameModalProps> = ({
+const EditModal: FC<EditModalProps> = ({
   onCancel,
-  onAdd,
+  onEdit,
   isOpen,
-  initName,
-  selectedClass: defaultSelectedClass
+  name,
+  notes,
+  title,
+  shapeId,
+  onAddPoints,
+  classId: initClassId,
+  attribute: initAttribute,
+  text: initText,
+  ID: initID
 }) => {
   const { projectid: projectId } = useParams()
   const setClasses = useClassesStore((s) => s.setClasses)
-  const [name, setName] = useState('')
-  const [notes, setNotes] = useState('')
+  const [newName, setName] = useState('')
+  const [newNotes, setNotes] = useState('')
   const [selectedClassOpt, setSelectedClassOpt] = useState<{ label: string; value: string } | null>(
     null
   )
@@ -41,20 +54,26 @@ const AddNameModal: FC<AddNameModalProps> = ({
   const [ID, setID] = useState('')
 
   const { data: annotationClassesData = [] } = useAnnotationClasses(projectId || '')
-  // Transform to legacy format
-  const classes: AnnotationClass[] = annotationClassesData.map((c) => ({
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    attributes: c.attributes || [],
-    text: c.has_text || false,
-    ID: c.has_id || false,
-    orgId: c.org_id,
-    projectId: c.project_id,
-    notes: c.notes || '',
-    createdAt: c.created_at || '',
-    modifiedAt: c.updated_at || ''
-  }))
+
+  // Transform snake_case to camelCase for compatibility
+  const classes = useMemo(
+    () =>
+      annotationClassesData.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        notes: c.notes || '',
+        attributes: c.attributes || [],
+        text: c.has_text || false,
+        ID: c.has_id || false,
+        orgId: c.org_id,
+        projectId: c.project_id,
+        createdAt: c.created_at || '',
+        modifiedAt: c.updated_at || c.created_at || ''
+      })),
+    [annotationClassesData]
+  )
+
   const classSelectOptions = classes.map((c) => ({ label: c.name, value: c.id }))
   const selectedClass = selectedClassOpt
     ? classes.find((c) => c.id === selectedClassOpt.value)
@@ -64,24 +83,38 @@ const AddNameModal: FC<AddNameModalProps> = ({
     : []
 
   useEffect(() => {
-    if (defaultSelectedClass) {
-      setSelectedClassOpt({ label: defaultSelectedClass.name, value: defaultSelectedClass.id })
-    } else {
-      setSelectedClassOpt(null)
-    }
-
-    return () => {
-      setSelectedClassOpt(null)
-    }
-  }, [defaultSelectedClass])
-
-  useEffect(() => {
-    setName(initName)
-  }, [initName])
-
-  useEffect(() => {
     setClasses(classes)
   }, [classes])
+
+  useEffect(() => {
+    if (!initClassId) return
+
+    const fClass = classes.find((c) => c.id === initClassId)
+    if (!fClass) return
+
+    setSelectedClassOpt({ value: fClass.id, label: fClass.name })
+  }, [initClassId, classes])
+
+  useEffect(() => {
+    if (!initAttribute) return
+
+    setSelectedAttr({ value: initAttribute, label: initAttribute })
+  }, [initAttribute])
+
+  useEffect(() => {
+    if (!initText) return
+    setText(initText)
+  }, [initText])
+
+  useEffect(() => {
+    if (!initID) return
+    setID(initID)
+  }, [initID])
+
+  useEffect(() => {
+    setName(name)
+    setNotes(notes)
+  }, [name, notes])
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value)
@@ -99,13 +132,28 @@ const AddNameModal: FC<AddNameModalProps> = ({
     setID(e.target.value)
   }
 
-  const handleAddClick = () => {
-    onAdd(name, notes, selectedClassOpt?.value, selectedAttr?.value, text, ID, selectedClass?.color)
+  const handleEditClick = () => {
+    onEdit(
+      newName,
+      newNotes,
+      selectedClassOpt?.value || undefined,
+      selectedAttr?.value,
+      text,
+      ID,
+      selectedClass?.color
+    )
     setName('')
     setNotes('')
     setSelectedAttr(null)
     setText('')
     setID('')
+  }
+
+  const handleAddPoints = () => {
+    if (onAddPoints && shapeId) {
+      onAddPoints(shapeId)
+      onCancel()
+    }
   }
 
   const handleClassSelect = (val: unknown) => {
@@ -118,14 +166,22 @@ const AddNameModal: FC<AddNameModalProps> = ({
   return (
     <CustomModal isOpen={isOpen}>
       <div className="flex flex-col gap-5 p-5 bg-white rounded-md w-screen max-w-[600px]">
-        <p className="text-center text-lg">Add Polygon</p>
+        <div className="flex flex-row justify-between items-center">
+          <p className="text-center text-2xl">{title}</p>
+
+          {onAddPoints && shapeId && (
+            <button onClick={handleAddPoints} className="text-brand rounded-md">
+              Add points
+            </button>
+          )}
+        </div>
 
         <div>
           <label>Name</label>
           <input
             className="w-full p-2 border-gray-500 border rounded-md mt-1"
             placeholder="type name here..."
-            value={name}
+            value={newName}
             onChange={handleNameChange}
           />
         </div>
@@ -136,7 +192,7 @@ const AddNameModal: FC<AddNameModalProps> = ({
             className="resize-none w-full p-2 border-gray-500 border rounded-md mt-1"
             rows={4}
             placeholder="type notes here..."
-            value={notes}
+            value={newNotes}
             onChange={handleNotesChange}
           />
         </div>
@@ -188,15 +244,12 @@ const AddNameModal: FC<AddNameModalProps> = ({
           </div>
         )}
 
-        <div className="flex flex-row gap-2">
-          <button
-            className="w-1/2 p-2 rounded-md border-brand border text-brand"
-            onClick={onCancel}
-          >
+        <div className="grid grid-cols-2 gap-2">
+          <button className="p-2 rounded-md border-brand border text-brand" onClick={onCancel}>
             Cancel
           </button>
-          <button className="w-1/2 bg-brand p-2 rounded-md text-white" onClick={handleAddClick}>
-            Add
+          <button className="bg-brand p-2 rounded-md text-white" onClick={handleEditClick}>
+            Save
           </button>
         </div>
       </div>
@@ -204,4 +257,4 @@ const AddNameModal: FC<AddNameModalProps> = ({
   )
 }
 
-export default AddNameModal
+export default EditModal
