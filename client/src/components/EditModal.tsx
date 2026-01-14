@@ -1,4 +1,4 @@
-import { ChangeEvent, FC, useEffect, useState } from 'react'
+import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react'
 
 import CustomModal from '@renderer/components/common/CustomModal'
 import { useClassesStore } from '@renderer/store/classes.store'
@@ -56,19 +56,23 @@ const EditModal: FC<EditModalProps> = ({
   const { data: annotationClassesData = [] } = useAnnotationClasses(projectId || '')
 
   // Transform snake_case to camelCase for compatibility
-  const classes = annotationClassesData.map((c) => ({
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    notes: c.notes || '',
-    attributes: c.attributes || [],
-    text: c.has_text || false,
-    ID: c.has_id || false,
-    orgId: c.org_id,
-    projectId: c.project_id,
-    createdAt: c.created_at || '',
-    modifiedAt: c.updated_at || c.created_at || ''
-  }))
+  const classes = useMemo(
+    () =>
+      annotationClassesData.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        notes: c.notes || '',
+        attributes: c.attributes || [],
+        text: c.has_text || false,
+        ID: c.has_id || false,
+        orgId: c.org_id,
+        projectId: c.project_id,
+        createdAt: c.created_at || '',
+        modifiedAt: c.updated_at || c.created_at || ''
+      })),
+    [annotationClassesData]
+  )
 
   const classSelectOptions = classes.map((c) => ({ label: c.name, value: c.id }))
   const selectedClass = selectedClassOpt
