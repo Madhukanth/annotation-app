@@ -85,8 +85,9 @@ const LoginForm: FC = () => {
         setOrgs(orgs)
         setSelectedOrg(orgs[0].id)
         navigate(`/orgs/${orgs[0].id}/projects`)
-      } catch (error: any) {
-        errorNotification(error.message || 'Email or password is incorrect')
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Email or password is incorrect'
+        errorNotification(errorMessage)
       } finally {
         setIsLoading(false)
       }

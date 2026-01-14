@@ -1,21 +1,17 @@
 import { FC, Fragment, RefObject, useCallback, useEffect, useState } from 'react'
 
-import { VideoCircleType } from '@models/Circle.model'
-import { VideoPolygonType } from '@models/Polygon.model'
-import { VideoRectangleType } from '@models/Rectangle.model'
-import SimplePolygon from './SimplePolygon'
-import SimpleRectangle from './SimpleRectangle'
-import SimpleCircle from './SimpleCircle'
-import PointType from '@models/Point.model'
-import { VideoFaceType } from '@models/Face.model'
-import SimpleFace from './SimpleFace'
+import type { VideoCircle, VideoPolygon, VideoRectangle, VideoFace, Point } from '@/types'
+import SimplePolygon from './simple/SimplePolygon'
+import SimpleRectangle from './simple/SimpleRectangle'
+import SimpleCircle from './simple/SimpleCircle'
+import SimpleFace from './simple/SimpleFace'
 
 type StageScale = { height: number; width: number; offsetTop: number; offsetLeft: number }
 type VideoShapesRendererProps = {
-  polygons: VideoPolygonType
-  rectangles: VideoRectangleType
-  circles: VideoCircleType
-  faces: VideoFaceType
+  polygons: VideoPolygon
+  rectangles: VideoRectangle
+  circles: VideoCircle
+  faces: VideoFace
   stageScale: StageScale
   videoRef: RefObject<HTMLVideoElement>
   fps: number
@@ -47,7 +43,7 @@ const VideoShapesRenderer: FC<VideoShapesRendererProps> = ({
     videoEle.requestVideoFrameCallback(frameCallbackHandler)
   }, [frameCallbackHandler])
 
-  const getPoints = (points: PointType[]) => {
+  const getPoints = (points: Point[]) => {
     return points.map((pnt) => ({
       id: pnt.id,
       x: pnt.x * stageScale.width,

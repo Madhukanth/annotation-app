@@ -76,11 +76,11 @@ const Invites: FC = () => {
                 >
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Name</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left">
-                    {(invite as any).projectId?.orgId?.name || invite.project?.org?.name || '-'}
+                    {invite.project?.org?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Email</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left overflow-hidden text-ellipsis">
-                    {(invite as any).projectId?.name || invite.project?.name || '-'}
+                    {invite.project?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Role</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left capitalize">
@@ -88,7 +88,7 @@ const Invites: FC = () => {
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400">Invited By</th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left capitalize">
-                    {(invite as any).inviter?.name || invite.inviter?.name || '-'}
+                    {invite.inviter?.name || '-'}
                   </td>
                   <th className="py-2 px-4 text-left sm:hidden text-gray-400"></th>
                   <td className="md:w-1/5 lg:md:w-1/5 p-3 md:p-0 d-sm-none d-md-table-cell lg:p-0 md:text-left">

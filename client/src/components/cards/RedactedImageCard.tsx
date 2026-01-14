@@ -9,12 +9,12 @@ import { ImageModel } from '@models/image.model'
 import PointType from '@models/Point.model'
 import RectangleType from '@models/Rectangle.model'
 import CircleType from '@models/Circle.model'
-import SimpleRectangle from './SimpleRectangle'
-import SimpleCircle from './SimpleCircle'
+import SimpleRectangle from '@/components/shapes/simple/SimpleRectangle'
+import SimpleCircle from '@/components/shapes/simple/SimpleCircle'
 import FaceType from '@models/Face.model'
-import SimpleFace from './SimpleFace'
+import SimpleFace from '@/components/shapes/simple/SimpleFace'
 import LineType from '@models/Line.model'
-import SimpleLine from './SimpleLine'
+import SimpleLine from '@/components/shapes/simple/SimpleLine'
 
 type ImgSize = { height: number; width: number }
 type StageScale = { height: number; width: number; offsetTop: number; offsetLeft: number }

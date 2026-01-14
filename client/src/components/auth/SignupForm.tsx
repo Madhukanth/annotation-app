@@ -109,8 +109,9 @@ const SignupForm: FC = () => {
 
         successNotification('Account created successfully!')
         navigate(`/orgs/${org.id}/projects`)
-      } catch (error: any) {
-        errorNotification(error.message || 'Signup failed')
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Signup failed'
+        errorNotification(errorMessage)
       } finally {
         setIsLoading(false)
       }

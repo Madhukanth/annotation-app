@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Stage as StageType } from 'konva/lib/Stage'
 
 import { VideoModel } from '@models/video.model'
-import VideoShapesRenderer from './VideoShapesRenderer'
+import VideoShapesRenderer from '@/components/shapes/VideoShapesRenderer'
 import VideoControls from '@renderer/pages/VideoAnnotate/VideoControls/VideoControls'
 
 type VideoSize = { height: number; width: number }

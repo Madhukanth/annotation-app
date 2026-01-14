@@ -27,13 +27,11 @@ const EditUser: FC<{ handleClose: () => void; user: UserType }> = ({ user, handl
     onSubmit: (values) => {
       if (!orgId) return
 
-      const { password, ...rest } = values
+      const updateData = { name: values.name, email: values.email, role: values.role }
       updateUserMutation.mutate(
         {
           userId: user.id,
-          input: {
-            ...rest,
-          }
+          input: updateData
         },
         {
           onSuccess() {
