@@ -1,4 +1,4 @@
-import { FC } from 'react'
+import { FC, useState, useRef, useEffect } from 'react'
 import { CKEditor } from '@ckeditor/ckeditor5-react'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
@@ -23,12 +23,43 @@ const ProjectInstructions: FC = () => {
   const { mutateAsync: createUploadUrlMutate } = useMutation(createInstructionFileUploadUrl)
   const { mutateAsync: uploadProjectInstFile } = useMutation(uploadProjectInstructionFile)
 
+  // Local state for editor content to prevent re-renders on every keystroke
+  const [editorContent, setEditorContent] = useState<string>('')
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitializedRef = useRef(false)
+
+  // Initialize editor content when project data loads
+  useEffect(() => {
+    if (projectData?.instructions && !isInitializedRef.current) {
+      setEditorContent(projectData.instructions)
+      isInitializedRef.current = true
+    }
+  }, [projectData?.instructions])
+
   const handleEditorChange = (editorState: string) => {
-    if (!projectId) return
-    updateProjectMutate({ projectId, input: { instructions: editorState } })
+    setEditorContent(editorState)
+    
+    // Debounce the save operation
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      if (!projectId) return
+      updateProjectMutate({ projectId, input: { instructions: editorState } })
+    }, 1000) // Save after 1 second of no typing
   }
 
-  if (isFetching) {
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+    }
+  }, [])
+
+  if (isFetching && !isInitializedRef.current) {
     return <div></div>
   }
 
@@ -60,7 +91,7 @@ const ProjectInstructions: FC = () => {
         config={{ extraPlugins: [uploadPlugin] }}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         editor={ClassicEditor as any}
-        data={projectData?.instructions || ''}
+        data={editorContent}
         onChange={(_event, editor) => {
           const data = editor.getData()
           handleEditorChange(data)
@@ -71,3 +102,4 @@ const ProjectInstructions: FC = () => {
 }
 
 export default ProjectInstructions
+
