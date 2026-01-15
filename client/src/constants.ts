@@ -1,4 +1,4 @@
-export const SIDEBAR_WIDTH = 200
+export const SIDEBAR_WIDTH = 220
 export const HEADER_HEIGHT = 60
 export const ANNOTATIONLIST_WIDTH = 300
 export const ANNOTATION_TOOLBAR_WIDTH = 70

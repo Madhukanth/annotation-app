@@ -1,11 +1,15 @@
 import { FC, useState } from 'react'
 import { useFormik } from 'formik'
 import { useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 
 import { supabase } from '@renderer/lib/supabase'
 import { useUserStore } from '@renderer/store/user.store'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { errorNotification, successNotification } from '@/components/ui/Notification'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type SignupFormikType = {
   name: string
@@ -119,106 +123,126 @@ const SignupForm: FC = () => {
   })
 
   return (
-    <form className="flex flex-col pt-8" onSubmit={formik.handleSubmit}>
-      <label className="text-gray-400" htmlFor="name">
-        Full Name
-      </label>
-      <input
-        className="p-2 text-lg border-b border-b-gray-300"
-        required
-        id="name"
-        name="name"
-        type="text"
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        value={formik.values.name}
-      />
-      {formik.touched.name && formik.errors.name && (
-        <span className="text-red-500 text-sm mt-1">{formik.errors.name}</span>
-      )}
+    <form className="space-y-5" onSubmit={formik.handleSubmit}>
+      <div className="space-y-2">
+        <Label htmlFor="name" className="text-foreground">
+          Full Name
+        </Label>
+        <Input
+          id="name"
+          name="name"
+          type="text"
+          placeholder="John Doe"
+          autoComplete="name"
+          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.name}
+          className="h-11"
+        />
+        {formik.touched.name && formik.errors.name && (
+          <span className="text-destructive text-sm">{formik.errors.name}</span>
+        )}
+      </div>
 
-      <label className="text-gray-400 mt-4" htmlFor="email">
-        Email Address
-      </label>
-      <input
-        className="p-2 text-lg border-b border-b-gray-300"
-        required
-        id="email"
-        name="email"
-        type="email"
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        value={formik.values.email}
-      />
-      {formik.touched.email && formik.errors.email && (
-        <span className="text-red-500 text-sm mt-1">{formik.errors.email}</span>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-foreground">
+          Email Address
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="name@example.com"
+          autoComplete="email"
+          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.email}
+          className="h-11"
+        />
+        {formik.touched.email && formik.errors.email && (
+          <span className="text-destructive text-sm">{formik.errors.email}</span>
+        )}
+      </div>
 
-      <label className="text-gray-400 mt-4" htmlFor="password">
-        Password
-      </label>
-      <input
-        required
-        className="p-2 text-lg border-b border-b-gray-300"
-        id="password"
-        name="password"
-        type="password"
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        value={formik.values.password}
-      />
-      {formik.touched.password && formik.errors.password && (
-        <span className="text-red-500 text-sm mt-1">
-          {formik.errors.password}
-        </span>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-foreground">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Create a password"
+          autoComplete="new-password"
+          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.password}
+          className="h-11"
+        />
+        {formik.touched.password && formik.errors.password && (
+          <span className="text-destructive text-sm">{formik.errors.password}</span>
+        )}
+      </div>
 
-      <label className="text-gray-400 mt-4" htmlFor="confirmPassword">
-        Confirm Password
-      </label>
-      <input
-        required
-        className="p-2 text-lg border-b border-b-gray-300"
-        id="confirmPassword"
-        name="confirmPassword"
-        type="password"
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        value={formik.values.confirmPassword}
-      />
-      {formik.touched.confirmPassword && formik.errors.confirmPassword && (
-        <span className="text-red-500 text-sm mt-1">
-          {formik.errors.confirmPassword}
-        </span>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="confirmPassword" className="text-foreground">
+          Confirm Password
+        </Label>
+        <Input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          placeholder="Confirm your password"
+          autoComplete="new-password"
+          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.confirmPassword}
+          className="h-11"
+        />
+        {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+          <span className="text-destructive text-sm">{formik.errors.confirmPassword}</span>
+        )}
+      </div>
 
-      <label className="text-gray-400 mt-4" htmlFor="organizationName">
-        Organization Name
-      </label>
-      <input
-        required
-        className="p-2 text-lg border-b border-b-gray-300"
-        id="organizationName"
-        name="organizationName"
-        type="text"
-        placeholder="Your company or team name"
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        value={formik.values.organizationName}
-      />
-      {formik.touched.organizationName && formik.errors.organizationName && (
-        <span className="text-red-500 text-sm mt-1">
-          {formik.errors.organizationName}
-        </span>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="organizationName" className="text-foreground">
+          Organization Name
+        </Label>
+        <Input
+          id="organizationName"
+          name="organizationName"
+          type="text"
+          placeholder="Your company or team name"
+          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.organizationName}
+          className="h-11"
+        />
+        {formik.touched.organizationName && formik.errors.organizationName && (
+          <span className="text-destructive text-sm">{formik.errors.organizationName}</span>
+        )}
+      </div>
 
-      <button
-        disabled={isLoading}
-        className="w-full mt-8 bg-brand text-white text-xl p-4 rounded-md disabled:opacity-50"
+      <Button
         type="submit"
+        disabled={isLoading}
+        className="w-full h-11 text-base font-medium"
+        size="lg"
       >
-        {isLoading ? 'Creating account...' : 'Sign Up'}
-      </button>
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating account...
+          </>
+        ) : (
+          'Create account'
+        )}
+      </Button>
     </form>
   )
 }

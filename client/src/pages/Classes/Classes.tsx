@@ -1,8 +1,8 @@
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { FiPlus } from 'react-icons/fi'
 import { useParams } from 'react-router-dom'
 
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import CreateClassModal from '@renderer/components/Classes/CreateClassModal'
 import { useAnnotationClasses } from '@/hooks/useAnnotationClasses'
 import AnnotationClass from '@models/AnnotationClass.model'
@@ -23,24 +23,35 @@ const Classes: FC = () => {
   const currProject = projects.find((p) => p.id === projectId)
 
   const { data: annotationClassesData = [], isLoading: isInitialLoading } = useAnnotationClasses(projectId || '')
-
-  // Transform snake_case to camelCase for compatibility
-  const annotationClasses = annotationClassesData.map((c) => ({
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    notes: c.notes || '',
-    attributes: c.attributes || [],
-    text: c.has_text || false,
-    ID: c.has_id || false,
-    orgId: c.org_id,
-    projectId: c.project_id,
-    createdAt: c.created_at || '',
-    modifiedAt: c.updated_at || c.created_at || ''
-  }))
+  
+  // Track previous data to prevent infinite loop
+  const prevDataRef = useRef<string>('')
 
   useEffect(() => {
-    setClasses(annotationClasses)
+    // Create a stable string representation to compare
+    const dataKey = JSON.stringify(annotationClassesData.map(c => c.id))
+    
+    // Only update if data actually changed
+    if (dataKey !== prevDataRef.current) {
+      prevDataRef.current = dataKey
+      
+      // Transform snake_case to camelCase for compatibility
+      const transformedClasses = annotationClassesData.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        notes: c.notes || '',
+        attributes: c.attributes || [],
+        text: c.has_text || false,
+        ID: c.has_id || false,
+        orgId: c.org_id,
+        projectId: c.project_id,
+        createdAt: c.created_at || '',
+        modifiedAt: c.updated_at || c.created_at || ''
+      }))
+      
+      setClasses(transformedClasses)
+    }
   }, [annotationClassesData, setClasses])
 
   if (!currProject) {

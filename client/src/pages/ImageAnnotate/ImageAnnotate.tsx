@@ -33,7 +33,7 @@ import AnnotateSidebar from '@renderer/components/Annotate/AnnotateSidebar'
 import { createPortal } from 'react-dom'
 import Tooltip from '@/components/ui/Tooltip'
 import HoverText from '@/components/ui/HoverText'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { BiX } from 'react-icons/bi'
 import FileType from '@renderer/models/File.model'
 

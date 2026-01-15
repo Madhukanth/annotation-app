@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Layer, Stage } from 'react-konva'
 import { Stage as StageType } from 'konva/lib/Stage'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import SimplePolygon from '@/components/shapes/simple/SimplePolygon'
 import PolygonType from '@models/Polygon.model'
@@ -12,14 +13,13 @@ import SimpleRectangle from '@/components/shapes/simple/SimpleRectangle'
 import SimpleCircle from '@/components/shapes/simple/SimpleCircle'
 import SimpleFace from '@/components/shapes/simple/SimpleFace'
 import FileType from '@models/File.model'
-import OutlineButton from '@/components/ui/OutlineButton'
+import { Button } from '@/components/ui/button'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 import LineType from '@models/Line.model'
 import SimpleLine from '@/components/shapes/simple/SimpleLine'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { BiX } from 'react-icons/bi'
 import { FileStatus } from './ProjectReview'
-import { useSearchParams } from 'react-router-dom'
 
 type ImgSize = { height: number; width: number }
 type StageScale = { height: number; width: number; offsetTop: number; offsetLeft: number }
@@ -109,6 +109,25 @@ const ReviewCard: FC<ReviewCardProp> = ({
       x: pnt.x * stageScale.width,
       y: pnt.y * stageScale.height
     }))
+  }
+
+  const buildReviewUrl = () => {
+    let url = `/${isClassification ? 'review-classify' : 'review'}/orgs/${orgId}/projects/${
+      image.projectId
+    }?limit=${100}&skip=${skip}`
+    
+    if (selectedAnnotatorId) url += `&annotator=${selectedAnnotatorId}`
+    if (fileStatus) {
+      url += `&complete=${fileStatus === 'complete' ? 'true' : 'false'}`
+      url += `&skipped=${fileStatus === 'skipped' ? 'true' : 'false'}`
+    }
+    if (fileStatus === 'annotated') url += '&hasShapes=true'
+    if (filterDate && fileStatus === 'complete') url += `&completedAfter=${filterDate.toISOString()}`
+    if (filterDate && fileStatus === 'skipped') url += `&skippedAfter=${filterDate.toISOString()}`
+    if (filterTags && filterTags.length > 0) url += `&tags=${filterTags.join(',')}`
+    url += `&projectSkip=${projectSkip}&projectLimit=${projectLimit}`
+    
+    return url
   }
 
   return (
@@ -211,28 +230,11 @@ const ReviewCard: FC<ReviewCardProp> = ({
         </div>
         <p className="text-gray-400 text-sm">{formatedDate}</p>
         <div className="flex justify-between mt-4">
-          <OutlineButton
-            link
-            to={
-              `/${isClassification ? 'review-classify' : 'review'}/orgs/${orgId}/projects/${
-                image.projectId
-              }?limit=${100}&skip=${skip}` +
-              (selectedAnnotatorId ? `&annotator=${selectedAnnotatorId}` : '') +
-              (fileStatus ? `&complete=${fileStatus === 'complete' ? 'true' : 'false'}` : '') +
-              (fileStatus ? `&skipped=${fileStatus === 'skipped' ? 'true' : 'false'}` : '') +
-              (fileStatus === 'annotated' ? '&hasShapes=true' : '') +
-              (filterDate && fileStatus === 'complete'
-                ? `&completedAfter=${filterDate.toISOString()}`
-                : '') +
-              (filterDate && fileStatus === 'skipped'
-                ? `&skippedAfter=${filterDate.toISOString()}`
-                : '') +
-              (filterTags && filterTags.length > 0 ? `&tags=${filterTags.join(',')}` : '') +
-              `&projectSkip=${projectSkip}&projectLimit=${projectLimit}`
-            }
-          >
-            Review
-          </OutlineButton>
+          <Button variant="outline" asChild>
+            <Link to={buildReviewUrl()}>
+              Review
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

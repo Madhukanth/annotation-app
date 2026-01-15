@@ -8,12 +8,22 @@ const Login: FC = () => {
   return (
     <AuthBackground>
       <div className="w-full">
-        <p className="text-3xl">Log In To Your Account</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          Welcome back
+        </h1>
+        <p className="text-muted-foreground mb-8">
+          Sign in to your account to continue
+        </p>
+        
         <LoginForm />
-        <p className="text-center mt-6 text-gray-600">
+        
+        <p className="text-center mt-8 text-muted-foreground">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-brand hover:underline">
-            Sign up
+          <Link 
+            to="/signup" 
+            className="text-primary font-medium hover:underline transition-colors"
+          >
+            Create one
           </Link>
         </p>
       </div>

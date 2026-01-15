@@ -1,4 +1,4 @@
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { useUpdateFile } from '@/hooks/useFiles'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useParams } from 'react-router-dom'

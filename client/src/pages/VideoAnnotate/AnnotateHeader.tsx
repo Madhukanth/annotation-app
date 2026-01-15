@@ -2,7 +2,7 @@ import { FC } from 'react'
 import { useParams } from 'react-router-dom'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { useMutation } from '@tanstack/react-query'
 import { filesService } from '@/services/supabase'

@@ -2,7 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Muli Font*/
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* shadcn CSS Variables */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 174 66% 31%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 174 66% 31%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 174 66% 50%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 174 66% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', 'Muli', Roboto, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI',
+      'Oxygen', 'Ubuntu', 'Cantarell', 'Open Sans', sans-serif;
+  }
+}
+
+/* Import Muli Font for backward compatibility */
 @font-face {
   font-family: 'Muli';
   font-style: normal;
@@ -19,40 +81,40 @@
     url('../assets/fonts/Muli-Bold.ttf') format('truetype');
 }
 
-body {
-  font-family: 'Muli', Roboto, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI',
-    'Oxygen', 'Ubuntu', 'Cantarell', 'Open Sans', sans-serif;
-  color: #043c4a;
-}
-
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
+  width: 8px;
+  height: 8px;
 }
 
-/* Track */
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Handle */
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.5);
+  background: hsl(var(--muted-foreground) / 0.3);
   border-radius: 10px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Form Elements */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
+/* Slider */
 .slider {
   border: 0;
   border-radius: 5px;
   outline: none;
   transition: opacity 0.2s;
   height: 7px;
-  background: white;
+  background: hsl(var(--muted));
   width: 100%;
   -webkit-appearance: none;
   cursor: pointer;
@@ -64,41 +126,42 @@ input::-webkit-inner-spin-button {
   width: 2px;
   height: 20px;
   border-radius: 4px;
-  background: '#043c4a';
+  background: hsl(var(--primary));
   cursor: pointer;
 }
 
 .slider:disabled::-webkit-slider-thumb {
-  background: '#c4c3c3';
+  background: hsl(var(--muted-foreground));
 }
 
 .slider::-moz-range-thumb {
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  background: '#043c4a';
+  background: hsl(var(--primary));
   cursor: pointer;
 }
 
 .slider:disabled::-moz-range-thumb {
-  background: '#c4c3c3';
+  background: hsl(var(--muted-foreground));
 }
 
+/* Calendar */
 .react-calendar__tile--active {
-  background: #1c827f;
+  background: hsl(var(--primary));
 }
 
 .react-calendar__tile--now {
-  background: rgba(28, 130, 127, 0.5);
+  background: hsl(var(--primary) / 0.5);
 }
 
 .react-calendar__tile--now:hover {
-  background: rgba(28, 130, 127, 0.5);
+  background: hsl(var(--primary) / 0.5);
 }
 
 .react-date-picker {
-  border: 1px solid rgba(4, 60, 74, 0.14);
-  border-radius: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
 }
 
 .react-date-picker__wrapper {

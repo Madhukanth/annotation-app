@@ -7,7 +7,7 @@ import { revertImages } from '@renderer/helpers/axiosRequests'
 import { InviteRoleType, UserType, inviteRoles, useUserStore } from '@renderer/store/user.store'
 import { useProjectUsers } from '@/hooks/useUsers'
 import { supabase } from '@/lib/supabase'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { useOrgStore } from '@renderer/store/organization.store'
 import {
   errorNotification,

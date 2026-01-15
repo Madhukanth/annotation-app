@@ -131,6 +131,19 @@ export const router = createBrowserRouter([
     ]
   },
 
+  // Organization Invites (protected)
+  {
+    path: 'orgs/:orgid/invites',
+    element: (
+      <AuthGuard>
+        <Layout />
+      </AuthGuard>
+    ),
+    children: [
+      { index: true, element: <Invites />, errorElement: <ErrorBoundary /> }
+    ]
+  },
+
   // Annotation routes (protected with Suspense)
   {
     path: 'annotate/orgs/:orgid/projects/:projectid',

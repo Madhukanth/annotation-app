@@ -18,8 +18,8 @@ import {
   successNotification,
   warningNotification
 } from '@/components/ui/Notification'
-import { useNavigate, useParams } from 'react-router-dom'
-import Button from '@/components/ui/Button'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { FileTypesType } from '@models/File.model'
 // import { VideoMetadataModel } from '@models/video_metadata.model'
@@ -211,12 +211,10 @@ const EditProject: FC = () => {
         style={{ left: `${SIDEBAR_WIDTH}px` }}
         className="bg-white px-8 flex items-center justify-end fixed bottom-0 h-20 right-0 shadow-inner"
       >
-        <Button
-          link
-          to={`/orgs/${orgId}/projects`}
-          className="mr-6 py-2 bg-transparent text-button-cancel"
-        >
-          Cancel
+        <Button variant="ghost" asChild className="mr-6">
+          <Link to={`/orgs/${orgId}/projects`}>
+            Cancel
+          </Link>
         </Button>
 
         <button

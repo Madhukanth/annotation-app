@@ -8,12 +8,22 @@ const Signup: FC = () => {
   return (
     <AuthBackground>
       <div className="w-full">
-        <p className="text-3xl">Create Your Account</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          Create your account
+        </h1>
+        <p className="text-muted-foreground mb-8">
+          Get started with your annotation workspace
+        </p>
+        
         <SignupForm />
-        <p className="text-center mt-6 text-gray-600">
+        
+        <p className="text-center mt-8 text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="text-brand hover:underline">
-            Log in
+          <Link 
+            to="/login" 
+            className="text-primary font-medium hover:underline transition-colors"
+          >
+            Sign in
           </Link>
         </p>
       </div>

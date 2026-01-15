@@ -1,11 +1,15 @@
 import { FC, useState } from 'react'
 import { useFormik } from 'formik'
 import { useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 
 import { supabase } from '@renderer/lib/supabase'
 import { useUserStore } from '@renderer/store/user.store'
 import { errorNotification } from '@/components/ui/Notification'
 import { useOrgStore } from '@renderer/store/organization.store'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type LoginFormikType = {
   email: string
@@ -95,39 +99,56 @@ const LoginForm: FC = () => {
   })
 
   return (
-    <form className="flex flex-col pt-12" onSubmit={formik.handleSubmit}>
-      <label className="text-gray-400" htmlFor="email">
-        Email Address
-      </label>
-      <input
-        className="p-2 text-lg border-b border-b-gray-300"
-        required
-        id="email"
-        name="email"
-        type="email"
-        onChange={formik.handleChange}
-        value={formik.values.email}
-      />
+    <form className="space-y-6" onSubmit={formik.handleSubmit}>
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-foreground">
+          Email Address
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="name@example.com"
+          autoComplete="email"
+          required
+          onChange={formik.handleChange}
+          value={formik.values.email}
+          className="h-12"
+        />
+      </div>
 
-      <label className="text-gray-400 mt-6" htmlFor="password">
-        Password
-      </label>
-      <input
-        required
-        className="p-2 text-lg border-b border-b-gray-300"
-        id="password"
-        name="password"
-        type="password"
-        onChange={formik.handleChange}
-        value={formik.values.password}
-      />
-      <button
-        disabled={isLoading}
-        className="w-full mt-8 bg-brand text-white text-xl p-4 rounded-md disabled:opacity-50"
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-foreground">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="Enter your password"
+          autoComplete="current-password"
+          required
+          onChange={formik.handleChange}
+          value={formik.values.password}
+          className="h-12"
+        />
+      </div>
+
+      <Button
         type="submit"
+        disabled={isLoading}
+        className="w-full h-12 text-base font-medium"
+        size="lg"
       >
-        {isLoading ? 'Logging in...' : 'Log in'}
-      </button>
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Signing in...
+          </>
+        ) : (
+          'Sign in'
+        )}
+      </Button>
     </form>
   )
 }

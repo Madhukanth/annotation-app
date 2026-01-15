@@ -1,20 +1,26 @@
 import { FC, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiPlus } from 'react-icons/fi'
+import { Plus, Trash2, Upload, RefreshCw, Folder } from 'lucide-react'
 
 import { syncProject } from '@renderer/helpers/axiosRequests'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useUserStore } from '@renderer/store/user.store'
-import Button from '@/components/ui/Button'
-import OutlineButton from '@/components/ui/OutlineButton'
+import { Button } from '@/components/ui/button'
 import { useProjectStore } from '@renderer/store/project.store'
 import { errorNotification, successNotification } from '@/components/ui/Notification'
 import Pagination from '@/components/ui/Pagination'
-import CardSkeleton from '@/components/ui/CardSkeleton'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import ProjectThumbnail from '@/components/cards/ProjectThumbnail'
-import CustomModal from '@/components/ui/CustomModal'
-import ConfirmDelete from '@/components/ui/ConfirmDelete'
-import { useSearchParams } from 'react-router-dom'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useDeleteProject, projectsKeys } from '@/hooks/useProjects'
 import type { ProjectListItem } from '@/services/supabase/projects.service'
 import { projectsService } from '@/services/supabase'
@@ -111,47 +117,94 @@ const Projects: FC = () => {
 
   return (
     <>
-      {!!delProject && (
-        <CustomModal isOpen closeModal={() => setDelProject(null)}>
-          <ConfirmDelete
-            name={`project "${delProject.name}"`}
-            loading={deleteProjectMutation.isLoading}
-            onCancel={() => setDelProject(null)}
-            onDelete={() => handleDeleteProject(delProject.id)}
-          />
-        </CustomModal>
-      )}
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!delProject} onOpenChange={() => setDelProject(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{delProject?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDelProject(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteProjectMutation.isLoading}
+              onClick={() => delProject && handleDeleteProject(delProject.id)}
+            >
+              {deleteProjectMutation.isLoading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <div className="grid grid-cols-1 h-full w-full px-3" style={{ gridTemplateRows: '70px 1fr' }}>
-        <div className="pb-4 flex justify-between items-center">
-          <p className="text-2xl">Projects</p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Projects</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Manage your annotation projects
+            </p>
+          </div>
 
           {user?.role !== 'user' && selectedOrg && (
-            <Button
-              className="flex items-center rounded-3xl"
-              link
-              to={`/orgs/${selectedOrg}/projects/add`}
-            >
-              <FiPlus color="white" size={20} className="mr-2" />
-              Add Project
+            <Button asChild>
+              <Link to={`/orgs/${selectedOrg}/projects/add`}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Project
+              </Link>
             </Button>
           )}
         </div>
 
+        {/* Empty State */}
         {paginatedProjects.length === 0 && !isFetching && (
-          <div className="flex justify-center items-center text-2xl">
-            <p>No projects</p>
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-full bg-muted p-4 mb-4">
+                <Folder className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-1">No projects yet</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Create your first project to get started
+              </p>
+              {user?.role !== 'user' && selectedOrg && (
+                <Button asChild>
+                  <Link to={`/orgs/${selectedOrg}/projects/add`}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Project
+                  </Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading Skeletons */}
+        {isFetching && paginatedProjects.length === 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="h-48 w-full rounded-none" />
+                <CardContent className="p-4 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <div className="flex gap-2 pt-2">
+                    <Skeleton className="h-9 w-16" />
+                    <Skeleton className="h-9 w-16" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
 
-        {isFetching && paginatedProjects.length === 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-6 overflow-scroll">
-            <CardSkeleton />
-            <CardSkeleton />
-            <CardSkeleton />
-          </div>
-        )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-6 overflow-scroll">
+        {/* Projects Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedProjects.map((project) => {
             let isAdmin = false
             if (user) {
@@ -178,85 +231,86 @@ const Projects: FC = () => {
             }
 
             return (
-              <div
-                key={project.id}
-                className="w-full border border-font-0.14 rounded-lg bg-white h-fit"
+              <Card 
+                key={project.id} 
+                className="overflow-hidden group hover:shadow-lg transition-all duration-200"
               >
+                {/* Thumbnail */}
                 {project.thumbnail ? (
                   <ProjectThumbnail project={projectForThumbnail} />
                 ) : (
-                  <div className="h-52 object-cover w-full rounded-t-md bg-black"></div>
+                  <div className="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Folder className="h-12 w-12 text-primary/40" />
+                  </div>
                 )}
 
-                <div className="py-2 px-4 pb-4">
-                  <p className="text-lg text-nowrap overflow-hidden text-ellipsis">
+                {/* Content */}
+                <CardContent className="p-4">
+                  <h3 className="font-medium text-foreground truncate mb-1">
                     {project.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {project.created_at ? new Date(project.created_at).toLocaleDateString() : ''}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last sync: {new Date(project.synced_at || project.created_at || Date.now()).toLocaleDateString()}
                   </p>
 
-                  <p className="text-sm opacity-50">
-                    {project.created_at ? new Date(project.created_at).toDateString() : ''}
-                  </p>
-
-                  <p className="text-xs opacity-50 mt-2">
-                    Last sync:{' '}
-                    {new Date(project.synced_at || project.created_at || Date.now()).toDateString()}
-                  </p>
-
-                  <div className="flex items-center mt-4">
-                    <OutlineButton
-                      link
-                      to={`/orgs/${selectedOrg}/projects/${project.id}/dashboard?projectSkip=${
-                        currentPage * limit
-                      }&projectLimit=${limit}`}
-                      className="mr-2"
-                    >
-                      View
-                    </OutlineButton>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 mt-4">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        to={`/orgs/${selectedOrg}/projects/${project.id}/dashboard?projectSkip=${
+                          currentPage * limit
+                        }&projectLimit=${limit}`}
+                      >
+                        View
+                      </Link>
+                    </Button>
 
                     {isAdmin && (
                       <>
                         {project.storage === 'default' ? (
-                          <OutlineButton
-                            link
-                            to={`/orgs/${selectedOrg}/projects/${project.id}/edit`}
-                            className="mr-2"
-                          >
-                            Upload
-                          </OutlineButton>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to={`/orgs/${selectedOrg}/projects/${project.id}/edit`}>
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Upload
+                            </Link>
+                          </Button>
                         ) : (
-                          <OutlineButton
+                          <Button
+                            variant="outline"
+                            size="sm"
                             disabled={project.is_syncing}
-                            onClick={() => {
-                              handleSync(project.id)
-                            }}
+                            onClick={() => handleSync(project.id)}
                           >
-                            {project.is_syncing ? 'Syncing...' : 'Sync'}
-                          </OutlineButton>
+                            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${project.is_syncing ? 'animate-spin' : ''}`} />
+                            {project.is_syncing ? 'Syncing' : 'Sync'}
+                          </Button>
                         )}
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+                          onClick={() => setDelProject(project)}
+                          disabled={deleteProjectMutation.isLoading}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </>
                     )}
-
-                    <div className="flex-grow" />
-
-                    {isAdmin && (
-                      <OutlineButton
-                        onClick={() => setDelProject(project)}
-                        disabled={deleteProjectMutation.isLoading}
-                        className="text-red-500"
-                      >
-                        Delete
-                      </OutlineButton>
-                    )}
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
 
+        {/* Pagination */}
         {totalPages > 1 && (
           <Pagination
-            className="my-5"
+            className="mt-6"
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={({ selected }) => {

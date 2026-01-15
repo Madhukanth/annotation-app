@@ -17,21 +17,21 @@ const Layout: FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen">
+    <div className="min-h-screen w-screen bg-muted/30">
       {/* Header */}
       <div style={{ height: `${HEADER_HEIGHT}px` }}>
         <HeaderLayout open={open} toggleOpen={() => setOpen(!open)} />
       </div>
 
-      {/* Routes */}
+      {/* Main Content */}
       <div
-        className="bg-gray-200 w-full lg:w-[calc(100vw-200px)] lg:ml-[200px]"
-        style={{ height: `calc(100vh - ${HEADER_HEIGHT}px)` }}
+        className="w-full lg:w-[calc(100vw-220px)] lg:ml-[220px]"
+        style={{ minHeight: `calc(100vh - ${HEADER_HEIGHT}px)` }}
       >
-        <div className="p-4">
+        <div className="p-6">
           <div
-            style={{ height: `calc(100vh - ${HEADER_HEIGHT}px - 32px)` }}
-            className="bg-white p-4 rounded-md"
+            style={{ minHeight: `calc(100vh - ${HEADER_HEIGHT}px - 48px)` }}
+            className="bg-card rounded-xl border shadow-sm p-6"
           >
             {isProjectPage ? (
               <Outlet />

@@ -4,7 +4,7 @@ import { ChromePicker } from 'react-color'
 import { useParams } from 'react-router-dom'
 
 import CustomModal from '@/components/ui/CustomModal'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { errorNotification, warningNotification } from '@/components/ui/Notification'
 import { cn } from '@renderer/utils/cn'
 import { useCreateAnnotationClass } from '@/hooks/useAnnotationClasses'

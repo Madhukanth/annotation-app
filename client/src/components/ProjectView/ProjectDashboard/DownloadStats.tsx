@@ -1,7 +1,7 @@
 import { FC, useState } from 'react'
 import { saveAs } from 'file-saver'
 
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { errorNotification } from '@/components/ui/Notification'
 
 const DownloadStats: FC<{ url: string; fileName: string; text: string }> = ({

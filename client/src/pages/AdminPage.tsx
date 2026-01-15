@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { MdModeEdit } from 'react-icons/md'
 import { FaTrash } from 'react-icons/fa'
 
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import AddUser from '@renderer/components/Admin/AddUser'
 import CustomModal from '@/components/ui/CustomModal'
 import EditUser from '@renderer/components/Admin/EditUser'

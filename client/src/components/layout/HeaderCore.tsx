@@ -1,16 +1,24 @@
 import { FC } from 'react'
-import { FiLogOut } from 'react-icons/fi'
-import { FaUser } from 'react-icons/fa'
+import { LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SingleValue } from 'react-select'
 
 import CustomSelect from '@/components/ui/Select'
-import HoverAndClickTooltip from '@/components/ui/HoverAndClickTooltip'
 import { useUserStore } from '@renderer/store/user.store'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { clearAuthTokenFromCookie } from '@renderer/helpers/cookie'
 import { useOrganizations } from '@/hooks/useOrganizations'
 import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 const HeaderCore: FC = () => {
   const navigate = useNavigate()
@@ -48,8 +56,16 @@ const HeaderCore: FC = () => {
     }
   }
 
+  // Get user initials for avatar
+  const initials = user?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U'
+
   return (
-    <div className="flex items-center space-x-3 pr-4">
+    <div className="flex items-center gap-4">
       <CustomSelect
         value={{
           value: selectedOrgOption?.id || '',
@@ -58,28 +74,33 @@ const HeaderCore: FC = () => {
         options={orgOptions}
         onChange={handleOrgChange}
       />
-      <HoverAndClickTooltip
-        hoverChildren={<></>}
-        clickAlign="bottom-end"
-        clickChildren={() => (
-          <div className="p-2 rounded-lg shadow-md bg-white text-center w-44">
-            <p className="overflow-hidden text-ellipsis whitespace-nowrap">{user?.name || '-'}</p>
-            <hr className="my-2" />
-            <button
-              className="flex items-center gap-2 justify-center w-full"
-              onClick={handleLogout}
-            >
-              Logout
-              <FiLogOut />
-            </button>
-          </div>
-        )}
-        move={19}
-      >
-        <button className="text-brand1">
-          <FaUser size={23} />
-        </button>
-      </HoverAndClickTooltip>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user?.email || ''}
+              </p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="cursor-pointer" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

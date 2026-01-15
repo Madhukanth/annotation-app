@@ -1,8 +1,9 @@
 import { FC, useRef } from 'react'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
+import { Link } from 'react-router-dom'
 
 import FileType from '@models/File.model'
-import OutlineButton from '@/components/ui/OutlineButton'
+import { Button } from '@/components/ui/button'
 import { getStoredUrl } from '@renderer/utils/vars'
 import VideoControls from '@renderer/pages/VideoAnnotate/VideoControls/VideoControls'
 import { useOrgStore } from '@renderer/store/organization.store'
@@ -50,21 +51,19 @@ const VideoAnnotateCard: FC<VideoAnnotateCardProps> = ({ video, isDeleting, onDe
         <p className="text-gray-400 text-sm">{formatedDate}</p>
 
         <div className="flex justify-between mt-4">
-          <OutlineButton
-            className="overflow-hidden text-ellipsis"
-            link
-            to={`/orgs/${orgId}projects/${video.projectId}/files/${video.id}/annotate`}
-          >
-            Annotate
-          </OutlineButton>
+          <Button variant="outline" className="overflow-hidden text-ellipsis" asChild>
+            <Link to={`/orgs/${orgId}/projects/${video.projectId}/files/${video.id}/annotate`}>
+              Annotate
+            </Link>
+          </Button>
 
-          <OutlineButton
+          <Button variant="outline"
             disabled={isDeleting}
             onClick={onDelete}
             className="text-red-500 overflow-hidden text-ellipsis"
           >
             Delete
-          </OutlineButton>
+          </Button>
         </div>
       </div>
     </div>

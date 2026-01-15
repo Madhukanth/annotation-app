@@ -4,7 +4,7 @@ import { HiOutlineUpload } from 'react-icons/hi'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import { useFormik } from 'formik'
 import { SingleValue } from 'react-select'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 
 import { useOrgStore } from '@renderer/store/organization.store'
@@ -14,7 +14,7 @@ import {
   successNotification,
   warningNotification
 } from '@/components/ui/Notification'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import CustomSelect from '@/components/ui/Select'
 import { SelectOption } from '@models/UI.model'
 import { StorageType, TaskType, FileType } from '@/lib/supabase'
@@ -229,7 +229,6 @@ const AddProject: FC = () => {
             value={formik.values.storage}
             options={[
               { value: 'default', label: 'Default' },
-              // { value: 'aws', label: 'AWS' },
               { value: 'azure', label: 'Azure' }
             ]}
             onChange={(val) => formik.setFieldValue('storage', val)}
@@ -439,12 +438,10 @@ const AddProject: FC = () => {
         style={{ left: `${SIDEBAR_WIDTH}px` }}
         className="bg-white px-8 flex items-center justify-end fixed bottom-0 h-20 right-0 shadow-inner"
       >
-        <Button
-          link
-          to={`/orgs/${orgId}/projects`}
-          className="mr-6 py-2 bg-transparent text-button-cancel"
-        >
-          Cancel
+        <Button variant="ghost" asChild className="mr-6">
+          <Link to={`/orgs/${orgId}/projects`}>
+            Cancel
+          </Link>
         </Button>
 
         <button

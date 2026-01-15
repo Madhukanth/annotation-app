@@ -2,7 +2,7 @@ import AnnotationClass from '@models/AnnotationClass.model'
 import { FC, useState } from 'react'
 import { BsFileTextFill } from 'react-icons/bs'
 import { FaAddressCard } from 'react-icons/fa'
-import OutlineButton from '@/components/ui/OutlineButton'
+import { Button } from '@/components/ui/button'
 import { useDeleteAnnotationClass } from '@/hooks/useAnnotationClasses'
 import { useUpdateProject } from '@/hooks/useProjects'
 import { errorNotification, successNotification } from '@/components/ui/Notification'
@@ -104,22 +104,22 @@ const ClassCard: FC<ClassCardProps> = ({ annotationClass, isDefaultClass, onEdit
           </div>
 
           <div className="mt-4 flex gap-2 items-center rounded-lg">
-            <OutlineButton onClick={() => onEdit(annotationClass)}>Edit</OutlineButton>
-            <OutlineButton
+            <Button variant="outline" onClick={() => onEdit(annotationClass)}>Edit</Button>
+            <Button variant="outline"
               className={cn({ 'bg-brand text-white': isDefaultClass })}
               onClick={() => handleMarkAsDefault(annotationClass.id)}
             >
               Mark Default
-            </OutlineButton>
+            </Button>
             <div className="flex-grow"></div>
 
-            <OutlineButton
+            <Button variant="outline"
               disabled={isLoading}
               onClick={() => setShowDelete(true)}
               className="text-red-500"
             >
               Delete
-            </OutlineButton>
+            </Button>
           </div>
         </div>
       </div>

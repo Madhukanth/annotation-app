@@ -13,7 +13,7 @@ import VideoAnnotateCard from './VideoAnnotateCard'
 import { useUserStore } from '@renderer/store/user.store'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useProjectStore } from '@renderer/store/project.store'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { transformFileToLegacy } from '@/utils/transformers'
 
 const ProjectAnnotate: FC = () => {

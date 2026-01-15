@@ -1,6 +1,7 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Layer, Stage } from 'react-konva'
 import { Stage as StageType } from 'konva/lib/Stage'
+import { Link } from 'react-router-dom'
 
 import SimplePolygon from '@/components/shapes/simple/SimplePolygon'
 import { VideoPolygonType } from '@models/Polygon.model'
@@ -13,7 +14,7 @@ import SimpleCircle from '@/components/shapes/simple/SimpleCircle'
 import SimpleFace from '@/components/shapes/simple/SimpleFace'
 import { VideoFileType } from '@models/File.model'
 import { getStoredUrl } from '@renderer/utils/vars'
-import OutlineButton from '@/components/ui/OutlineButton'
+import { Button } from '@/components/ui/button'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 import { VideoLineType } from '@models/Line.model'
 import SimpleLine from '@/components/shapes/simple/SimpleLine'
@@ -214,12 +215,11 @@ const VideoReviewCard: FC<VideoReviewCardProp> = ({
         </div>
         <p className="text-gray-400 text-sm">{formatedDate}</p>
         <div className="flex justify-between mt-4">
-          <OutlineButton
-            link
-            to={`/orgs/${orgId}/projects/${video.projectId}/files/${video.id}/annotate`}
-          >
-            Review
-          </OutlineButton>
+          <Button variant="outline" asChild>
+            <Link to={`/orgs/${orgId}/projects/${video.projectId}/files/${video.id}/annotate`}>
+              Review
+            </Link>
+          </Button>
         </div>
       </div>
     </div>
