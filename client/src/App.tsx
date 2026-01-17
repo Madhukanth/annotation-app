@@ -1,15 +1,15 @@
 import { Suspense, useEffect, useState } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider, useRouteError } from 'react-router-dom'
 
-import Home from '@renderer/pages/Home'
+import HomePage from '@renderer/pages/HomePage'
 import Layout from './layouts/Layout'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import ProtectedRoutes from './components/ProtectedRoute'
+import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
+import ProtectedRoutes from './components/guards/ProtectedRoute'
 import { useUserStore } from './store/user.store'
-import Projects from './pages/Projects'
+import ProjectsListPage from './pages/ProjectsListPage'
 import AddProject from './pages/AddProject'
-import Invites from './pages/Invites'
+import InvitationsPage from './pages/InvitationsPage'
 import EditProject from './pages/EditProject'
 import AnnotatePage from './pages/AnnotatePage'
 import ClassifyPage from './pages/ClassifyPage'
@@ -17,7 +17,7 @@ import { useOrgStore } from './store/organization.store'
 import { useClassesStore } from './store/classes.store'
 import InviteLayout from './layouts/InviteLayout'
 import Loader from './components/common/Loader'
-import OnlyAdminRoutes from './components/OnlyAdminRoute'
+import OnlyAdminRoutes from './components/guards/OnlyAdminRoute'
 import AdminPage from './pages/AdminPage'
 import ProjectDashboard from './pages/ProjectDashboard'
 import ProjectInstructions from './components/ProjectView/ProjectInstructions/ProjectInstructions'
@@ -26,7 +26,7 @@ import ProjectAnnotate from './components/ProjectView/ProjectAnnotate/ProjectAnn
 import ProjectReview from './components/ProjectView/ProjectReview/ProjectReview'
 import Classes from './pages/Classes/Classes'
 import ProjectStats from './pages/ProjectStats'
-import AllowedProjectMembers from './components/AllowedProjectMember'
+import ProjectMemberGuard from './components/guards/ProjectMemberItem'
 import { organizationsKeys } from '@/hooks/useOrganizations'
 import { supabase } from '@/lib/supabase'
 import { organizationsService } from './services/supabase'
@@ -40,9 +40,9 @@ function ErrorBoundary() {
 }
 
 const router = createBrowserRouter([
-  { path: '', element: <Home />, errorElement: <ErrorBoundary /> },
-  { path: 'login', element: <Login />, errorElement: <ErrorBoundary /> },
-  { path: 'signup', element: <Signup />, errorElement: <ErrorBoundary /> },
+  { path: '', element: <HomePage />, errorElement: <ErrorBoundary /> },
+  { path: 'login', element: <LoginPage />, errorElement: <ErrorBoundary /> },
+  { path: 'signup', element: <SignupPage />, errorElement: <ErrorBoundary /> },
   {
     path: 'invites', // '/invites'
     element: (
@@ -50,7 +50,7 @@ const router = createBrowserRouter([
         <InviteLayout />
       </ProtectedRoutes>
     ),
-    children: [{ index: true, element: <Invites />, errorElement: <ErrorBoundary /> }]
+    children: [{ index: true, element: <InvitationsPage />, errorElement: <ErrorBoundary /> }]
   },
   {
     path: 'admin',
@@ -69,7 +69,7 @@ const router = createBrowserRouter([
       </ProtectedRoutes>
     ),
     children: [
-      { index: true, element: <Projects />, errorElement: <ErrorBoundary /> },
+      { index: true, element: <ProjectsListPage />, errorElement: <ErrorBoundary /> },
       {
         path: ':projectid', // '/orgs/someorgid/projects/someprojectid'
         children: [
@@ -83,27 +83,27 @@ const router = createBrowserRouter([
           {
             path: 'members',
             element: (
-              <AllowedProjectMembers allowed={['dataManager']}>
+              <ProjectMemberGuard allowed={['dataManager']}>
                 <ProjectMembers />
-              </AllowedProjectMembers>
+              </ProjectMemberGuard>
             ),
             errorElement: <ErrorBoundary />
           },
           {
             path: 'images',
             element: (
-              <AllowedProjectMembers allowed={['dataManager', 'annotator']}>
+              <ProjectMemberGuard allowed={['dataManager', 'annotator']}>
                 <ProjectAnnotate />
-              </AllowedProjectMembers>
+              </ProjectMemberGuard>
             ),
             errorElement: <ErrorBoundary />
           },
           {
             path: 'review',
             element: (
-              <AllowedProjectMembers allowed={['dataManager', 'reviewer']}>
+              <ProjectMemberGuard allowed={['dataManager', 'reviewer']}>
                 <ProjectReview />
-              </AllowedProjectMembers>
+              </ProjectMemberGuard>
             ),
             errorElement: <ErrorBoundary />
           },

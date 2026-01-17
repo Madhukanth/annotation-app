@@ -17,5 +17,3 @@ type PolygonType = {
 }
 
 export default PolygonType
-
-export type VideoPolygonType = { [frame: number]: PolygonType[] }

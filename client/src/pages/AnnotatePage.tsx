@@ -1,10 +1,9 @@
 import { FC, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import ImageAnnotate from './ImageAnnotate/ImageAnnotate'
-import VideoAnnotate from './VideoAnnotate/VideoAnnotate'
+import ImageAnnotatePage from './ImageAnnotatePage'
 import { HEADER_HEIGHT } from '@renderer/constants'
-import HeaderLayout from '@renderer/components/Annotate/HeaderLayout'
+import HeaderLayout from '@/features/image-annotation/components/HeaderLayout'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useProjectStore } from '@renderer/store/project.store'
@@ -70,8 +69,8 @@ const AnnotatePage: FC = () => {
         ...(annotator && { annotatorId: annotator }),
         ...(keepCount > 0 &&
           files.length > 0 && {
-            skipFileIds: files.slice(-keepCount).map((f) => f.id)
-          }),
+          skipFileIds: files.slice(-keepCount).map((f) => f.id)
+        }),
         assign: isReviewPage ? 'false' : 'true'
       }
 
@@ -166,11 +165,7 @@ const AnnotatePage: FC = () => {
       {isFetching ? (
         <Loader />
       ) : selectedFile ? (
-        selectedFile.type === 'image' ? (
-          <ImageAnnotate />
-        ) : (
-          <VideoAnnotate />
-        )
+        <ImageAnnotatePage />
       ) : (
         <Loader />
       )}
@@ -193,39 +188,20 @@ function transformFileToLegacy(file: FileWithMetadata): FileType {
       }
     }
 
-    // For images, metadata contains arrays of shapes
-    // For videos, metadata contains objects with frame keys
-    if (file.type === 'image') {
-      const meta = file.metadata as {
-        rectangles: unknown[]
-        circles: unknown[]
-        polygons: unknown[]
-        faces: unknown[]
-        lines: unknown[]
-      }
-      return {
-        rectangles: (meta.rectangles || []).map(transformShape),
-        circles: (meta.circles || []).map(transformShape),
-        polygons: (meta.polygons || []).map(transformShape),
-        faces: (meta.faces || []).map(transformShape),
-        lines: (meta.lines || []).map(transformShape)
-      }
-    } else {
-      // Video metadata has shapes organized by frame
-      const meta = file.metadata as {
-        rectangles: { [frame: number]: unknown[] }
-        circles: { [frame: number]: unknown[] }
-        polygons: { [frame: number]: unknown[] }
-        faces: { [frame: number]: unknown[] }
-        lines: { [frame: number]: unknown[] }
-      }
-      return {
-        rectangles: transformVideoShapes(meta.rectangles || {}),
-        circles: transformVideoShapes(meta.circles || {}),
-        polygons: transformVideoShapes(meta.polygons || {}),
-        faces: transformVideoShapes(meta.faces || {}),
-        lines: transformVideoShapes(meta.lines || {})
-      }
+    // Transform metadata (image format: arrays of shapes)
+    const meta = file.metadata as {
+      rectangles: unknown[]
+      circles: unknown[]
+      polygons: unknown[]
+      faces: unknown[]
+      lines: unknown[]
+    }
+    return {
+      rectangles: (meta?.rectangles || []).map(transformShape),
+      circles: (meta?.circles || []).map(transformShape),
+      polygons: (meta?.polygons || []).map(transformShape),
+      faces: (meta?.faces || []).map(transformShape),
+      lines: (meta?.lines || []).map(transformShape)
     }
   }
 
@@ -254,17 +230,6 @@ function transformFileToLegacy(file: FileWithMetadata): FileType {
     closed: shape.closed ?? false // Required for FaceType
   })
 
-  // Transform video shapes (organized by frame) to legacy format
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const transformVideoShapes = (frameShapes: { [frame: number]: unknown[] }): { [frame: number]: any[] } => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result: { [frame: number]: any[] } = {}
-    for (const [frame, shapes] of Object.entries(frameShapes)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result[Number(frame)] = (shapes as any[]).map(transformShape)
-    }
-    return result
-  }
 
   return {
     id: file.id,
@@ -274,7 +239,7 @@ function transformFileToLegacy(file: FileWithMetadata): FileType {
     orgId: file.org_id,
     projectId: file.project_id,
     url: file.url || '',
-    type: (file.type || 'image') as 'image' | 'video',
+    type: 'image' as const,
     metadata: transformMetadata(),
     annotators: file.annotator_id ? [file.annotator_id] : [],
     reviewers: [],
@@ -296,10 +261,7 @@ function transformFileToLegacy(file: FileWithMetadata): FileType {
       modifiedAt: ''
     })),
     dbIndex: file.dbIndex || 0,
-    skipped: file.skipped,
-    fps: file.fps,
-    totalFrames: file.total_frames,
-    duration: file.duration
+    skipped: file.skipped
   }
 }
 

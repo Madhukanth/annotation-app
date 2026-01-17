@@ -2,15 +2,15 @@ import { FC, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { HEADER_HEIGHT } from '@renderer/constants'
-import HeaderLayout from '@renderer/components/Annotate/HeaderLayout'
+import HeaderLayout from '@/features/image-annotation/components/HeaderLayout'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { useFilesStore } from '@renderer/store/files.store'
 import { useProjectStore } from '@renderer/store/project.store'
 import Loader from '@renderer/components/common/Loader'
 import { errorNotification, successNotification } from '@renderer/components/common/Notification'
-import ClassifyImage from '@renderer/components/ClassifyImage'
+import { ClassifyImage } from '@/features/classification'
 import { useClassifyStore } from '@renderer/store/classify.store'
-import ClassifyGrid from '@renderer/components/ClassifyGrid/ClassifyGrid'
+import ClassifyGrid from '@/features/classification/components/ClassifyGrid'
 import { useProjects } from '@/hooks/useProjects'
 import { filesService } from '@/services/supabase'
 import { transformFileToLegacy, transformProjectToLegacy } from '@/utils/transformers'
@@ -70,8 +70,8 @@ const ClassifyPage: FC = () => {
         ...(tags && { tags: tags.split(',') }),
         ...(keepCount > 0 &&
           files.length > 0 && {
-            skipFileIds: files.slice(-keepCount).map((f) => f.id)
-          }),
+          skipFileIds: files.slice(-keepCount).map((f) => f.id)
+        }),
         assign: isReviewPage ? 'false' : 'true'
       }
 

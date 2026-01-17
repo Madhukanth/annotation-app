@@ -18,5 +18,3 @@ type FaceType = {
 }
 
 export default FaceType
-
-export type VideoFaceType = { [frame: number]: FaceType[] }

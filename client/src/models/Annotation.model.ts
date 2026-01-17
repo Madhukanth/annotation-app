@@ -1,8 +1,8 @@
-import CircleType, { VideoCircleType } from './Circle.model'
-import FaceType, { VideoFaceType } from './Face.model'
-import LineType, { VideoLineType } from './Line.model'
-import PolygonType, { VideoPolygonType } from './Polygon.model'
-import RectangleType, { VideoRectangleType } from './Rectangle.model'
+import CircleType from './Circle.model'
+import FaceType from './Face.model'
+import LineType from './Line.model'
+import PolygonType from './Polygon.model'
+import RectangleType from './Rectangle.model'
 
 export type ShapeType = RectangleType | CircleType | PolygonType | FaceType | LineType
 
@@ -16,11 +16,3 @@ type AnnotationType = {
 }
 
 export default AnnotationType
-
-export type VideoAnnotationType = {
-  rectangles: VideoRectangleType
-  circles: VideoCircleType
-  polygons: VideoPolygonType
-  faces: VideoFaceType
-  lines: VideoLineType
-}

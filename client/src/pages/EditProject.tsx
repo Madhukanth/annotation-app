@@ -1,15 +1,9 @@
 import { FC, Fragment, useCallback, useEffect, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
-import { useMutation } from '@tanstack/react-query'
 import { HiOutlineUpload } from 'react-icons/hi'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import { useDropzone } from 'react-dropzone'
 
-import {
-  completeFileUpload,
-  createFileUploadUrl,
-  uploadFileMutator
-} from '@renderer/helpers/axiosRequests'
 import { useUpdateProject } from '@/hooks/useProjects'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { SIDEBAR_WIDTH } from '@renderer/constants'
@@ -21,8 +15,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import Button from '@renderer/components/common/Button'
 import { useProjectStore } from '@renderer/store/project.store'
-import { FileTypesType } from '@models/File.model'
-// import { VideoMetadataModel } from '@models/video_metadata.model'
+import { FileType } from '@/lib/supabase'
+import { filesService, storageService } from '@/services/supabase'
 
 const EditProject: FC = () => {
   const { projectid: projectId } = useParams()
@@ -34,10 +28,7 @@ const EditProject: FC = () => {
   const [uploading, setUploading] = useState(false)
   const orgId = useOrgStore((s) => s.selectedOrg)
   const navigate = useNavigate()
-  const { mutateAsync: uploadFileMutate } = useMutation(uploadFileMutator)
   const { mutateAsync: updateProjectMutate } = useUpdateProject()
-  const { mutateAsync: createFileUploadUrlMutate } = useMutation(createFileUploadUrl)
-  const { mutateAsync: completeFileUploadMutate } = useMutation(completeFileUpload)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles((v) => [...v, ...acceptedFiles])
@@ -59,11 +50,6 @@ const EditProject: FC = () => {
       return
     }
 
-    if (files.length === 0) {
-      warningNotification('Please select at least one file to upload')
-      return
-    }
-
     const progressObj: { [fileName: string]: number } = {}
     for (const file of files) {
       progressObj[file.name] = 0
@@ -71,65 +57,72 @@ const EditProject: FC = () => {
     setUploadProgress(progressObj)
     setUploading(true)
 
-    await updateProjectMutate({ projectId, input: { name } })
+    try {
+      // Update project name
+      await updateProjectMutate({ projectId, input: { name } })
 
-    const failedFiles: File[] = []
-    for (const file of files) {
-      try {
-        const createUrlData = await createFileUploadUrlMutate({
-          orgId: orgId,
-          projectId: projectId,
-          originalName: file.name,
-          type: file.type
-        })
+      const failedFiles: File[] = []
 
-        await uploadFileMutate({
-          storage: fProject.storage,
-          url: createUrlData.uploadUrl,
-          orgId: orgId,
-          projectId: projectId,
-          uploadFile: file,
-          onProgress: (percent) => {
-            setUploadProgress((prgs) => ({ ...prgs, [file.name]: percent }))
+      // Upload files directly to Supabase Storage and create file records
+      for (const file of files) {
+        try {
+          // Upload file directly to Supabase Storage
+          const uploadResult = await storageService.uploadFileToStorage({
+            orgId: orgId,
+            projectId: projectId,
+            file: file,
+            onProgress: (percent) => {
+              setUploadProgress((prgs) => ({ ...prgs, [file.name]: percent }))
+            }
+          })
+
+          // Determine file type
+          const fileType: FileType = file.type.startsWith('video') ? 'video' : 'image'
+
+          // Get video metadata if needed
+          const info = { totalFrames: 1, fps: 1, duration: 0 }
+          if (fileType === 'video') {
+            // Default video values - in production you might want to extract these
+            info.fps = 24
+            info.totalFrames = 4800
+            info.duration = 200
           }
-        })
 
-        const info = { totalFrames: 1, fps: 1, duration: 0 }
-        const fileType: FileTypesType = file.type.startsWith('video') ? 'video' : 'image'
-        if (fileType === 'video') {
-          // const { framescount, fps, duration } =
-          //   await window.api.fileApi.getVideoMetadata<VideoMetadataModel>(file.filePath)
-          info.fps = 24
-          info.totalFrames = 4800
-          info.duration = 200
+          // Create file record directly in Supabase database
+          await filesService.createFile({
+            id: uploadResult.fileId,
+            originalName: file.name,
+            name: uploadResult.path.split('/').pop() || file.name,
+            url: uploadResult.url,
+            relativePath: uploadResult.path,
+            storedIn: 'default',
+            orgId: orgId,
+            projectId: projectId,
+            type: fileType,
+            totalFrames: info.totalFrames,
+            fps: info.fps,
+            duration: info.duration
+          })
+        } catch (e) {
+          console.error(`Failed to upload ${file.name}:`, e)
+          failedFiles.push(file)
         }
-
-        await completeFileUploadMutate({
-          orgId: orgId,
-          projectId: projectId,
-          fileId: createUrlData.fileId,
-          relativePath: createUrlData.relativePath,
-          name: createUrlData.name,
-          originalName: createUrlData.updatedOriginalName,
-          totalFrames: info.totalFrames,
-          fps: info.fps,
-          duration: info.duration,
-          type: fileType
-        })
-      } catch (e) {
-        failedFiles.push(file)
       }
-    }
 
-    setUploading(false)
-    if (failedFiles.length > 0) {
-      setFiles(failedFiles)
-      errorNotification(`Failed to upload ${failedFiles.length} file(s)`)
-    } else {
-      successNotification('Successfully uploaded')
-      navigate(`/orgs/${orgId}/projects`)
+      setUploading(false)
+      if (failedFiles.length > 0) {
+        setFiles(failedFiles)
+        errorNotification(`Failed to upload ${failedFiles.length} file(s)`)
+      } else {
+        successNotification('Successfully uploaded')
+        navigate(`/orgs/${orgId}/projects`)
+      }
+    } catch (error) {
+      console.error('Error updating project:', error)
+      setUploading(false)
+      errorNotification('Failed to update project')
     }
-  }, [orgId, name, files, projectId, fProject])
+  }, [orgId, name, files, projectId, fProject, navigate])
 
   const deleteFile = (fileName: string) => {
     setFiles((v) => v.filter((f) => f.name !== fileName))
@@ -139,7 +132,7 @@ const EditProject: FC = () => {
     <Fragment>
       <div className="grid h-[calc(100%-80px)]" style={{ gridTemplateRows: '70px 1fr' }}>
         <div className="py-4 px-4 row-span-1 max-h-20">
-          <p className="text-2xl">Add Project</p>
+          <p className="text-2xl">Edit Project</p>
         </div>
 
         <div className="flex flex-col mx-4 py-6 px-10 bg-white rounded-t-lg overflow-y-scroll">

@@ -17,5 +17,3 @@ type LineType = {
 }
 
 export default LineType
-
-export type VideoLineType = { [frame: number]: LineType[] }

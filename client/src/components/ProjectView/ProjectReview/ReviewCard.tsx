@@ -2,20 +2,20 @@ import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Layer, Stage } from 'react-konva'
 import { Stage as StageType } from 'konva/lib/Stage'
 
-import SimplePolygon from '@renderer/components/SimplePolygon'
+import StaticPolygon from '@renderer/components/shapes/StaticPolygon'
 import PolygonType from '@models/Polygon.model'
 import PointType from '@models/Point.model'
 import RectangleType from '@models/Rectangle.model'
 import CircleType from '@models/Circle.model'
 import FaceType from '@models/Face.model'
-import SimpleRectangle from '@renderer/components/SimpleRectangle'
-import SimpleCircle from '@renderer/components/SimpleCircle'
-import SimpleFace from '@renderer/components/SimpleFace'
+import StaticRectangle from '@renderer/components/shapes/StaticRectangle'
+import StaticCircle from '@renderer/components/shapes/StaticCircle'
+import StaticFace from '@renderer/components/shapes/StaticFace'
 import FileType from '@models/File.model'
 import OutlineButton from '@renderer/components/common/OutlineButton'
 import { BsFillCheckCircleFill } from 'react-icons/bs'
 import LineType from '@models/Line.model'
-import SimpleLine from '@renderer/components/SimpleLine'
+import StaticLine from '@renderer/components/shapes/StaticLine'
 import { useOrgStore } from '@renderer/store/organization.store'
 import { BiX } from 'react-icons/bi'
 import { FileStatus } from './ProjectReview'
@@ -133,7 +133,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
             >
               <Layer>
                 {polygons.map((polygon) => (
-                  <SimplePolygon
+                  <StaticPolygon
                     key={polygon.id}
                     stroke={polygon.stroke}
                     strokeWidth={polygon.strokeWidth}
@@ -142,7 +142,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
                 ))}
 
                 {lines.map((line) => (
-                  <SimpleLine
+                  <StaticLine
                     key={line.id}
                     stroke={line.stroke}
                     strokeWidth={line.strokeWidth}
@@ -151,7 +151,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
                 ))}
 
                 {rectangles.map((rect) => (
-                  <SimpleRectangle
+                  <StaticRectangle
                     key={rect.id}
                     shapeProps={{
                       ...rect,
@@ -165,7 +165,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
                 ))}
 
                 {circles.map((circle) => (
-                  <SimpleCircle
+                  <StaticCircle
                     key={circle.id}
                     shapeProps={{
                       ...circle,
@@ -179,7 +179,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
                 ))}
 
                 {faces.map((face) => (
-                  <SimpleFace
+                  <StaticFace
                     key={face.id}
                     stroke={face.stroke}
                     strokeWidth={face.strokeWidth}
@@ -214,8 +214,7 @@ const ReviewCard: FC<ReviewCardProp> = ({
           <OutlineButton
             link
             to={
-              `/${isClassification ? 'review-classify' : 'review'}/orgs/${orgId}/projects/${
-                image.projectId
+              `/${isClassification ? 'review-classify' : 'review'}/orgs/${orgId}/projects/${image.projectId
               }?limit=${100}&skip=${skip}` +
               (selectedAnnotatorId ? `&annotator=${selectedAnnotatorId}` : '') +
               (fileStatus ? `&complete=${fileStatus === 'complete' ? 'true' : 'false'}` : '') +

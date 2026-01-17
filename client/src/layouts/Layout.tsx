@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 
 import { HEADER_HEIGHT } from '@renderer/constants'
 import HeaderLayout from './HeaderLayout'
-import LoadData from '@renderer/components/LoadData'
+import DataProvider from '@renderer/components/DataProvider'
 
 const Layout: FC = () => {
   const { orgid: orgId } = useParams()
@@ -36,9 +36,9 @@ const Layout: FC = () => {
             {isProjectPage ? (
               <Outlet />
             ) : (
-              <LoadData>
+              <DataProvider>
                 <Outlet />
-              </LoadData>
+              </DataProvider>
             )}
           </div>
         </div>

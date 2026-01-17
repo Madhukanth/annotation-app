@@ -9,7 +9,6 @@ import { errorNotification } from '@renderer/components/common/Notification'
 import Pagination from '@renderer/components/common/Pagination'
 import { useFilesStore } from '@renderer/store/files.store'
 import CardSkeleton from '@renderer/components/common/CardSkeleton'
-import VideoAnnotateCard from './VideoAnnotateCard'
 import { useUserStore } from '@renderer/store/user.store'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useProjectStore } from '@renderer/store/project.store'
@@ -142,31 +141,18 @@ const ProjectAnnotate: FC = () => {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-max h-full overflow-scroll">
-        {data.files.map((file) => {
-          if (file.type === 'image') {
-            return (
-              <AnnotateCard
-                skip={currentPage * limit}
-                limit={limit}
-                key={file.id}
-                isDeleting={isDeleting}
-                image={file}
-                onDelete={() => handleDeleteFile(file.id)}
-                annotator={user?.id}
-                skipped={false}
-              />
-            )
-          }
-
-          return (
-            <VideoAnnotateCard
-              key={file.id}
-              video={file}
-              isDeleting={isDeleting}
-              onDelete={() => handleDeleteFile(file.id)}
-            />
-          )
-        })}
+        {data.files.map((file) => (
+          <AnnotateCard
+            skip={currentPage * limit}
+            limit={limit}
+            key={file.id}
+            isDeleting={isDeleting}
+            image={file}
+            onDelete={() => handleDeleteFile(file.id)}
+            annotator={user?.id}
+            skipped={false}
+          />
+        ))}
       </div>
 
       {totalPages > 1 && (

@@ -18,5 +18,3 @@ type RectangleType = {
 }
 
 export default RectangleType
-
-export type VideoRectangleType = { [frame: number]: RectangleType[] }

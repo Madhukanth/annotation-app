@@ -18,5 +18,3 @@ type CircleType = {
 }
 
 export default CircleType
-
-export type VideoCircleType = { [frame: number]: CircleType[] }
